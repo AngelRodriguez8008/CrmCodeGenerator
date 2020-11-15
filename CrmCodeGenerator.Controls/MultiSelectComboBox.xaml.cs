@@ -1,16 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 
@@ -50,32 +41,26 @@ namespace CrmCodeGenerator.Controls
 
         public Collection<string> ItemsSource
         {
-            get { return (Collection<string>)GetValue(ItemsSourceProperty); }
-            set
-            {
-                SetValue(ItemsSourceProperty, value);
-            }
+            get => (Collection<string>)GetValue(ItemsSourceProperty);
+            set => SetValue(ItemsSourceProperty, value);
         }
 
         public Collection<string> SelectedItems
         {
-            get { return (Collection<string>)GetValue(SelectedItemsProperty); }
-            set
-            {
-                SetValue(SelectedItemsProperty, value);
-            }
+            get => (Collection<string>)GetValue(SelectedItemsProperty);
+            set => SetValue(SelectedItemsProperty, value);
         }
 
         public string Text
         {
-            get { return (string)GetValue(TextProperty); }
-            set { SetValue(TextProperty, value); }
+            get => (string)GetValue(TextProperty);
+            set => SetValue(TextProperty, value);
         }
 
         public string DefaultText
         {
-            get { return (string)GetValue(DefaultTextProperty); }
-            set { SetValue(DefaultTextProperty, value); }
+            get => (string)GetValue(DefaultTextProperty);
+            set => SetValue(DefaultTextProperty, value);
         }
         #endregion
 
@@ -97,9 +82,9 @@ namespace CrmCodeGenerator.Controls
         {
             CheckBox clickedBox = (CheckBox)sender;
 
-            if (clickedBox.Content == "All")
+            if ("All".Equals(clickedBox.Content))
             {
-                if (clickedBox.IsChecked.Value)
+                if (clickedBox.IsChecked == true)
                 {
                     foreach (Node node in _nodeList)
                     {
@@ -221,10 +206,7 @@ namespace CrmCodeGenerator.Controls
         #region Properties
         public string Title
         {
-            get
-            {
-                return _title.Replace("_", "__");
-            }
+            get => _title.Replace("_", "__");
             set
             {
                 _title = value;
@@ -233,10 +215,7 @@ namespace CrmCodeGenerator.Controls
         }
         public bool IsSelected
         {
-            get
-            {
-                return _isSelected;
-            }
+            get => _isSelected;
             set
             {
                 _isSelected = value;
@@ -248,10 +227,7 @@ namespace CrmCodeGenerator.Controls
         public event PropertyChangedEventHandler PropertyChanged;
         protected void NotifyPropertyChanged(string propertyName)
         {
-            if (PropertyChanged != null)
-            {
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-            }
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
     }

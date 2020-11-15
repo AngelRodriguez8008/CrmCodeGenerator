@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Microsoft.Xrm.Sdk;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Collections.ObjectModel;
-using Microsoft.Xrm.Sdk.Client;
-using CrmCodeGenerator.VSPackage.Helpers;
-using Microsoft.Xrm.Sdk.Discovery;
 
+// ReSharper disable InconsistentNaming
 namespace CrmCodeGenerator.VSPackage.Model
 {
     public class Settings : INotifyPropertyChanged
@@ -26,12 +22,13 @@ namespace CrmCodeGenerator.VSPackage.Model
         public event PropertyChangedEventHandler PropertyChanged;
         protected virtual void OnPropertyChanged(string propertyName)
         {
-            PropertyChangedEventHandler handler = PropertyChanged;
-            if (handler != null) handler(this, new PropertyChangedEventArgs(propertyName));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
         protected bool SetField<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
         {
-            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+            if (EqualityComparer<T>.Default.Equals(field, value)) 
+                return false;
+
             field = value;
             Dirty = true;
             OnPropertyChanged(propertyName);
@@ -50,7 +47,6 @@ namespace CrmCodeGenerator.VSPackage.Model
         private string _Password;
         private string _Username;
         private string _Domain;
-        private string _CrmSdkUrl;
         private string _Template;
         private string _T4Path;
         private bool _IncludeNonStandard;
@@ -59,32 +55,17 @@ namespace CrmCodeGenerator.VSPackage.Model
         private string _ProjectName;
         public string ProjectName
         {
-            get
-            {
-                return _ProjectName;
-            }
-            set
-            {
-                SetField(ref _ProjectName, value);
-            }
+            get => _ProjectName;
+            set => SetField(ref _ProjectName, value);
         }
         public string T4Path
         {
-            get
-            {
-                return _T4Path;
-            }
-            set
-            {
-                SetField(ref _T4Path, value);
-            }
+            get => _T4Path;
+            set => SetField(ref _T4Path, value);
         }
         public string Template
         {
-            get
-            {
-                return _Template;
-            }
+            get => _Template;
             set
             {
                 SetField(ref _Template, value);
@@ -94,108 +75,49 @@ namespace CrmCodeGenerator.VSPackage.Model
         private string _Folder = "";
         public string Folder
         {
-            get
-            {
-                return _Folder;
-            }
-            set
-            {
-                SetField(ref _Folder, value);
-            }
+            get => _Folder;
+            set => SetField(ref _Folder, value);
         }
 
         private bool _NewTemplate;
         public bool NewTemplate
         {
-            get
-            {
-                return _NewTemplate;
-            }
-            set
-            {
-                SetField(ref _NewTemplate, value);
-            }
+            get => _NewTemplate;
+            set => SetField(ref _NewTemplate, value);
         }
         public string OutputPath
         {
-            get
-            {
-                return _OutputPath;
-            }
-            set
-            {
-                SetField(ref _OutputPath, value);
-            }
+            get => _OutputPath;
+            set => SetField(ref _OutputPath, value);
         }
 
-        public string CrmSdkUrl
-        {
-            get
-            {
-                return _CrmSdkUrl;
-            }
-            set
-            {
-                SetField(ref _CrmSdkUrl, value);
-            }
-        }
         public string Domain
         {
-            get
-            {
-                return _Domain;
-            }
-            set
-            {
-                SetField(ref _Domain, value);
-            }
+            get => _Domain;
+            set => SetField(ref _Domain, value);
         }
         public string Username
         {
-            get
-            {
-                return _Username;
-            }
-            set
-            {
-                SetField(ref _Username, value);
-            }
+            get => _Username;
+            set => SetField(ref _Username, value);
         }
         public string Password
         {
-            get
-            {
-                return _Password;
-            }
-            set
-            {
-                SetField(ref _Password, value);
-            }
+            get => _Password;
+            set => SetField(ref _Password, value);
         }
         public string CrmOrg
         {
-            get
-            {
-                return _CrmOrg;
-            }
-            set
-            {
-                SetField(ref _CrmOrg, value);
-            }
+            get => _CrmOrg;
+            set => SetField(ref _CrmOrg, value);
         }
 
 
-        private ObservableCollection<String> _OnLineServers = new ObservableCollection<String>();
-        public ObservableCollection<String> OnLineServers
+        private ObservableCollection<string> _OnLineServers = new ObservableCollection<string>();
+        public ObservableCollection<string> OnLineServers
         {
-            get
-            {
-                return _OnLineServers;
-            }
-            set
-            {
-                SetField(ref _OnLineServers, value);
-            }
+            get => _OnLineServers;
+            set => SetField(ref _OnLineServers, value);
         }
         //private string _OnlineServer;
         //public string OnlineServer
@@ -212,72 +134,37 @@ namespace CrmCodeGenerator.VSPackage.Model
         private string _ServerName = "";
         public string ServerName
         {
-            get
-            {
-                return _ServerName;
-            }
-            set
-            {
-                SetField(ref _ServerName, value);
-            }
+            get => _ServerName;
+            set => SetField(ref _ServerName, value);
         }
         private string _ServerPort = "";
         public string ServerPort
         {
-            get
-            {
-                if (UseOnline || UseOffice365)
-                {
-                    return "";
-                }
-                return _ServerPort;
-            }
-            set
-            {
-                SetField(ref _ServerPort, value);
-            }
+            get => UseOnline || UseOffice365 ? "" : _ServerPort;
+            set => SetField(ref _ServerPort, value);
         }
         private string _HomeRealm = "";
         public string HomeRealm
         {
-            get
-            {
-                return _HomeRealm;
-            }
-            set
-            {
-                SetField(ref _HomeRealm, value);
-            }
+            get => _HomeRealm;
+            set => SetField(ref _HomeRealm, value);
         }
 
 
-        private ObservableCollection<String> _OrgList = new ObservableCollection<String>();
-        public ObservableCollection<String> OrgList
+        private ObservableCollection<string> _OrgList = new ObservableCollection<string>();
+        public ObservableCollection<string> OrgList
         {
-            get
-            {
-                return _OrgList;
-            }
-            set
-            {
-                SetField(ref _OrgList, value);
-            }
+            get => _OrgList;
+            set => SetField(ref _OrgList, value);
         }
 
 
-        private ObservableCollection<String> _TemplateList = new ObservableCollection<String>();
-        public ObservableCollection<String> TemplateList
+        private ObservableCollection<string> _TemplateList = new ObservableCollection<string>();
+        public ObservableCollection<string> TemplateList
         {
-            get
-            {
-                return _TemplateList;
-            }
-            set
-            {
-                SetField(ref _TemplateList, value);
-            }
+            get => _TemplateList;
+            set => SetField(ref _TemplateList, value);
         }
-        public IOrganizationService CrmConnection { get; set; }
 
         public string EntitiesToIncludeString
         {
@@ -308,72 +195,50 @@ namespace CrmCodeGenerator.VSPackage.Model
             }
         }
 
-        public ObservableCollection<string> _EntityList;
+        private ObservableCollection<string> _EntityList;
         public ObservableCollection<string> EntityList
         {
-            get
-            {
-                return _EntityList;
-            }
-            set
-            {
-                SetField(ref _EntityList, value);
-            }
+            get => _EntityList;
+            set => SetField(ref _EntityList, value);
         }
 
-        public ObservableCollection<string> _EntitiesSelected;
+        private ObservableCollection<string> _EntitiesSelected;
         public ObservableCollection<string> EntitiesSelected
         {
-            get
-            {
-                return _EntitiesSelected;
-            }
-            set
-            {
-                SetField(ref _EntitiesSelected, value);
-            }
+            get => _EntitiesSelected;
+            set => SetField(ref _EntitiesSelected, value);
         }
+        public bool IsReadOnly =>_MappingSettings != null;
+
+             private MappingSettings _MappingSettings;
+        public MappingSettings MappingSettings
+        {
+            get => _MappingSettings;
+            set => SetField(ref _MappingSettings, value);
+        }
+
 
         public string Namespace
         {
-            get
-            {
-                return _Namespace;
-            }
-            set
-            {
-                SetField(ref _Namespace, value);
-            }
+            get => _Namespace;
+            set => SetField(ref _Namespace, value);
         }
 
         public bool Dirty { get; set; }
-
-
+        
         public bool IncludeNonStandard
         {
-            get
-            {
-                return _IncludeNonStandard;
-            }
-            set
-            {
-                SetField(ref _IncludeNonStandard, value);
-            }
+            get => _IncludeNonStandard;
+            set => SetField(ref _IncludeNonStandard, value);
         }
         public bool IncludeUnpublish
         {
-            get
-            {
-                return _IncludeUnpublish;
-            }
-            set
-            {
-                SetField(ref _IncludeUnpublish, value);
-            }
+            get => _IncludeUnpublish;
+            set => SetField(ref _IncludeUnpublish, value);
         }
         public bool UseSSL
         {
-            get { return _UseSSL; }
+            get => _UseSSL;
             set
             {
                 if (SetField(ref _UseSSL, value))
@@ -384,47 +249,47 @@ namespace CrmCodeGenerator.VSPackage.Model
         }
         public bool UseIFD
         {
-            get { return _UseIFD; }
+            get => _UseIFD;
             set
             {
-                if (SetField(ref _UseIFD, value))
+                if (SetField(ref _UseIFD, value) == false)
+                    return;
+
+                if (value)
                 {
-                    if (value)
-                    {
-                        UseOnline = false;
-                        UseOffice365 = false;
-                        UseSSL = true;
-                        UseWindowsAuth = false;
-                    }
-                    ReEvalReadOnly();
+                    UseOnline = false;
+                    UseOffice365 = false;
+                    UseSSL = true;
+                    UseWindowsAuth = false;
                 }
+                ReEvalReadOnly();
             }
         }
         public bool UseOnline
         {
-            get { return _UseOnline; }
+            get => _UseOnline;
             set
             {
-                if (SetField(ref _UseOnline, value))
+                if (SetField(ref _UseOnline, value) == false)
+                    return;
+
+                if (value)
                 {
-                    if (value)
-                    {
-                        UseIFD = false;
-                        UseOffice365 = true;
-                        UseSSL = true;
-                        UseWindowsAuth = false;
-                    }
-                    else
-                    {
-                        UseOffice365 = false;
-                    }
-                    ReEvalReadOnly();
+                    UseIFD = false;
+                    UseOffice365 = true;
+                    UseSSL = true;
+                    UseWindowsAuth = false;
                 }
+                else
+                {
+                    UseOffice365 = false;
+                }
+                ReEvalReadOnly();
             }
         }
         public bool UseOffice365
         {
-            get { return _UseOffice365; }
+            get => _UseOffice365;
             set
             {
                 if (SetField(ref _UseOffice365, value))
@@ -443,15 +308,14 @@ namespace CrmCodeGenerator.VSPackage.Model
         private bool _UseWindowsAuth;
         public bool UseWindowsAuth
         {
-            get { return _UseWindowsAuth; }
+            get => _UseWindowsAuth;
             set
             {
                 SetField(ref _UseWindowsAuth, value);
                 ReEvalReadOnly();
             }
         }
-
-
+        
         #region Read Only Properties
         private void ReEvalReadOnly()
         {
@@ -463,225 +327,35 @@ namespace CrmCodeGenerator.VSPackage.Model
             OnPropertyChanged("CanUseWindowsAuth");
             OnPropertyChanged("CanUseSSL");
         }
-        public bool NeedServer
-        {
-            get
-            {
-                return !(UseOnline || UseOffice365);
-            }
-        }
-        public bool NeedOnlineServer
-        {
-            get
-            {
-                return (UseOnline || UseOffice365);
-            }
-        }
-        public bool NeedServerPort
-        {
-            get
-            {
-                return !(UseOffice365 || UseOnline);
-            }
-        }
-        public bool NeedHomeRealm
-        {
-            get
-            {
-                return !(UseIFD || UseOffice365 || UseOnline);
-            }
-        }
-        public bool NeedCredentials
-        {
-            get
-            {
-                return !UseWindowsAuth;
-            }
-        }
-        public bool CanUseWindowsAuth
-        {
-            get
-            {
-                return !(UseIFD || UseOnline || UseOffice365);
-            }
-        }
-        public bool CanUseSSL
-        {
-            get
-            {
-                return !(UseOnline || UseOffice365 || UseIFD);
-            }
-        }
+        public bool NeedServer => !(UseOnline || UseOffice365);
+
+        public bool NeedOnlineServer => (UseOnline || UseOffice365);
+
+        public bool NeedServerPort => !(UseOffice365 || UseOnline);
+
+        public bool NeedHomeRealm => !(UseIFD || UseOffice365 || UseOnline);
+
+        public bool NeedCredentials => !UseWindowsAuth;
+
+        public bool CanUseWindowsAuth => !(UseIFD || UseOnline || UseOffice365);
+
+        public bool CanUseSSL => !(UseOnline || UseOffice365 || UseIFD);
+
         #endregion
-
-
-        #region Conntection Strings
-
-        public AuthenticationProviderType AuthType
-        {
-            get {
-                if (UseIFD)
-                {
-                    return AuthenticationProviderType.Federation;
-                }
-                else if (UseOffice365)
-                {
-                    return AuthenticationProviderType.OnlineFederation;
-                }
-                else if (UseOnline)
-                {
-                    return AuthenticationProviderType.LiveId;
-                }
-                
-                return AuthenticationProviderType.ActiveDirectory;
-            }
-        }
-
-        public string GetDiscoveryCrmConnectionString()
-        {
-            var connectionString = string.Format("Url={0}://{1}:{2};",
-                UseSSL ? "https" : "http",
-                UseIFD ? ServerName : UseOffice365 ? "disco." + ServerName : UseOnline ? "dev." + ServerName : ServerName,
-                ServerPort.Length == 0 ? (UseSSL ? 443 : 80) : int.Parse(ServerPort));
-
-            if (!UseWindowsAuth)
-            {
-                if (!UseIFD)
-                {
-                    if (!string.IsNullOrEmpty(Domain))
-                    {
-                        connectionString += string.Format("Domain={0};", Domain);
-                    }
-                }
-
-                string sUsername = Username;
-                if (UseIFD)
-                {
-                    if (!string.IsNullOrEmpty(Domain))
-                    {
-                        sUsername = string.Format("{0}\\{1}", Domain, Username);
-                    }
-                }
-
-                connectionString += string.Format("Username={0};Password={1};", sUsername, Password);
-            }
-
-            if (UseOnline && !UseOffice365)
-            {
-                System.ServiceModel.Description.ClientCredentials deviceCredentials;
-
-                do
-                {
-                    deviceCredentials = DeviceIdManager.LoadDeviceCredentials() ??
-                                        DeviceIdManager.RegisterDevice();
-                } while (deviceCredentials.UserName.Password.Contains(";")
-                         || deviceCredentials.UserName.Password.Contains("=")
-                         || deviceCredentials.UserName.Password.Contains(" ")
-                         || deviceCredentials.UserName.UserName.Contains(";")
-                         || deviceCredentials.UserName.UserName.Contains("=")
-                         || deviceCredentials.UserName.UserName.Contains(" "));
-
-                connectionString += string.Format("DeviceID={0};DevicePassword={1};",
-                                                  deviceCredentials.UserName.UserName,
-                                                  deviceCredentials.UserName.Password);
-            }
-
-            if (UseIFD && !string.IsNullOrEmpty(HomeRealm))
-            {
-                connectionString += string.Format("HomeRealmUri={0};", HomeRealm);
-            }
-
-            return connectionString;
-        }
-
-
-        public string GetOrganizationCrmConnectionString()
-        {
-            var currentServerName = string.Empty;
-
-            var orgDetails  = ConnectionHelper.GetOrganizationDetails(this);
-            if (UseOffice365 || UseOnline)
-            {
-                currentServerName = string.Format("{0}.{1}", orgDetails.UrlName, ServerName);
-            }
-            else if (UseIFD)
-            {
-                var serverNameParts = ServerName.Split('.');
-
-                serverNameParts[0] = orgDetails.UrlName;
-
-
-                currentServerName = string.Format("{0}:{1}",
-                                                  string.Join(".", serverNameParts),
-                                                  ServerPort.Length == 0 ? (UseSSL ? 443 : 80) : int.Parse(ServerPort));
-            }
-            else
-            {
-                currentServerName = string.Format("{0}:{1}/{2}",
-                                                  ServerName,
-                                                  ServerPort.Length == 0 ? (UseSSL ? 443 : 80) : int.Parse(ServerPort),
-                                                  CrmOrg);
-            }
-
-            //var connectionString = string.Format("Url={0}://{1};",
-            //                                     UseSSL ? "https" : "http",
-            //                                     currentServerName);
-
-            var connectionString = string.Format("Url={0};", orgDetails.Endpoints[EndpointType.OrganizationService].Replace("/XRMServices/2011/Organization.svc", ""));
-
-            if (!UseWindowsAuth)
-            {
-                if (!UseIFD)
-                {
-                    if (!string.IsNullOrEmpty(Domain))
-                    {
-                        connectionString += string.Format("Domain={0};", Domain);
-                    }
-                }
-
-                string username = Username;
-                if (UseIFD)
-                {
-                    if (!string.IsNullOrEmpty(Domain))
-                    {
-                        username = string.Format("{0}\\{1}", Domain, Username);
-                    }
-                }
-
-                connectionString += string.Format("Username={0};Password={1};", username, Password);
-            }
-
-            if (UseOnline)
-            {
-                System.ServiceModel.Description.ClientCredentials deviceCredentials;
-
-                do
-                {
-                    deviceCredentials = DeviceIdManager.LoadDeviceCredentials() ??
-                                        DeviceIdManager.RegisterDevice();
-                } while (deviceCredentials.UserName.Password.Contains(";")
-                         || deviceCredentials.UserName.Password.Contains("=")
-                         || deviceCredentials.UserName.Password.Contains(" ")
-                         || deviceCredentials.UserName.UserName.Contains(";")
-                         || deviceCredentials.UserName.UserName.Contains("=")
-                         || deviceCredentials.UserName.UserName.Contains(" "));
-
-                connectionString += string.Format("DeviceID={0};DevicePassword={1};",
-                                                  deviceCredentials.UserName.UserName,
-                                                  deviceCredentials.UserName.Password);
-            }
-
-            if (UseIFD && !string.IsNullOrEmpty(HomeRealm))
-            {
-                connectionString += string.Format("HomeRealmUri={0};", HomeRealm);
-            }
-
-            //append timeout in seconds to connectionstring
-            //connectionString += string.Format("Timeout={0};", Timeout.ToString(@"hh\:mm\:ss"));
-            return connectionString;
-        }
-        #endregion
-
+        
+        public string DiscoveryUrl 
+            =>  $"{(UseSSL ? "https" : "http")}://{(UseIFD ? ServerName : UseOffice365 ? "disco." + ServerName : UseOnline ? "dev." + ServerName : ServerName)}:{(ServerPort.Length == 0 ? (UseSSL ? 443 : 80) : int.Parse(ServerPort))}/XRMServices/2011/Discovery.svc";
+       
         public bool IsActive { get; set; }
+    }
+
+    public class MappingSettings
+    {
+        public Dictionary<string, EntityMappingSetting> Entities;
+    }
+    public class EntityMappingSetting
+    {
+        public string CodeName;
+        public Dictionary<string, string> Attributes;
     }
 }

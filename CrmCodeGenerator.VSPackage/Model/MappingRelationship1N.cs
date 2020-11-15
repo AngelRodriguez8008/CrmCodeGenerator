@@ -1,31 +1,24 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Microsoft.Xrm.Sdk.Metadata;
 using CrmCodeGenerator.VSPackage.Helpers;
 
 namespace CrmCodeGenerator.VSPackage.Model
 {
-    [Serializable]
-    public class MappingRelationship1N
-    {
-        public CrmRelationshipAttribute Attribute { get; set; }
-        public string DisplayName { get; set; }
-        public string ForeignKey { get; set; }
-        public string LogicalName { get; set; }
-        public string SchemaName { get; set; }
-        public string HybridName { get; set; }
-        public string PrivateName { get; set; }
-        public string EntityRole { get; set; }
-        public string Type { get; set; }
-        public MappingEntity ToEntity { get; set; }
 
+    [Serializable]
+    public class MappingRelationship1N : MappingRelationship
+    {   
+        public string LogicalName { get; set; }
+        
         public static MappingRelationship1N Parse(OneToManyRelationshipMetadata rel, MappingField[] properties)
         {
-            var propertyName =
-                properties.First(p => p.Attribute.LogicalName.ToLower() == rel.ReferencedAttribute.ToLower()).DisplayName;
+            var property = properties?.FirstOrDefault(p => string.Equals(p.Attribute.LogicalName, rel.ReferencedAttribute, StringComparison.OrdinalIgnoreCase));
+            if (property == null)
+                return null;
 
+            var propertyName = property.DisplayName;
+            
             var result = new MappingRelationship1N
             {
                 Attribute = new CrmRelationshipAttribute

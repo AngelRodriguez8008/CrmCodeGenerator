@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace CrmCodeGenerator.VSPackage.Model
 {
@@ -11,5 +8,7 @@ namespace CrmCodeGenerator.VSPackage.Model
         public string Namespace { get; set; }
 
         public MappingEntity[] Entities { get; set; }
+
+        public MappingEnum[] Enums { get; set; }
     }
 }

@@ -1,9 +1,5 @@
 ﻿using CrmCodeGenerator.VSPackage.Helpers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using EnvDTE80;
 
 namespace CrmCodeGenerator.VSPackage
 {
@@ -12,7 +8,7 @@ namespace CrmCodeGenerator.VSPackage
 
         #region Singleton
         private static Configuration _instance;
-        private static Object SyncLock = new System.Object();
+        private static readonly object SyncLock = new object();
         public static Configuration Instance
         {
             get
@@ -35,21 +31,23 @@ namespace CrmCodeGenerator.VSPackage
         
         public Configuration()
         {
-            Settings = new CrmCodeGenerator.VSPackage.Model.Settings();
-            Settings.CrmSdkUrl = @"https://disco.crm.dynamics.com/XRMServices/2011/Discovery.svc";
-            Settings.ProjectName = "";
-            Settings.Domain = "";
-            Settings.T4Path = System.IO.Path.Combine(DteHelper.AssemblyDirectory(), @"Resources\Templates\CrmSvcUtil.tt");
-            Settings.Template = "";
-            Settings.CrmOrg = "DEV-CRM";
-            Settings.EntitiesToIncludeString = "account,contact,lead,opportunity,systemuser";
-            Settings.OutputPath = "";
-            Settings.Username = "@XXXXX.onmicrosoft.com";
-            Settings.Password = "";
-            Settings.Namespace = "";
-            Settings.Dirty = false;
+            Settings = new Model.Settings
+            {
+                ServerName = "crm.dynamics.com",
+                ProjectName = "",
+                Domain = "",
+                T4Path = System.IO.Path.Combine(DteHelper.AssemblyDirectory(), @"Resources\Templates\CrmSvcUtil.tt"),
+                Template = "",
+                CrmOrg = "DEV-CRM",
+                EntitiesToIncludeString = "account,contact,lead,opportunity,systemuser",
+                OutputPath = "",
+                Username = "@XXXXX.onmicrosoft.com",
+                Password = "",
+                Namespace = "",
+                Dirty = false
+            };
         }
-        public CrmCodeGenerator.VSPackage.Model.Settings Settings { get; set; }
-        public EnvDTE80.DTE2 DTE { get; set; }
+        public Model.Settings Settings { get; set; }
+        public DTE2 DTE { get; set; }
     }
 }

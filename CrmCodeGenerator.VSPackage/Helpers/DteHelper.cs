@@ -1,9 +1,7 @@
 ﻿using EnvDTE;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.VisualStudio.OLE.Interop;
+using Microsoft.VisualStudio.Shell;
 
 namespace CrmCodeGenerator.VSPackage.Helpers
 {
@@ -11,54 +9,49 @@ namespace CrmCodeGenerator.VSPackage.Helpers
     {
         public static bool HasProjectItem(this Project project, string projectFile)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             var projectItem = project.GetProjectItem(projectFile);
-            return projectItem == null ? false : true;
+            return projectItem != null;
         }
         public static ProjectItem GetProjectItem(this Project project, string projectFile)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             return GetProjectItemRecursive(project.ProjectItems, projectFile);
         }
         private static ProjectItem GetProjectItemRecursive(ProjectItems projectItems, string projectFile, string folder = "")
         {
-            // initial value
-            ProjectItem result = null;
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             projectFile = projectFile.Replace(@"\", "/");
 
-            // iterate project items
             foreach (ProjectItem projectItem in projectItems)
             {
                 // if the name matches
-                if (folder + projectItem.Name == projectFile)
-                {
-                    result = projectItem;
-                    break;
-                }
-                else if ((projectItem.ProjectItems != null) && (projectItem.ProjectItems.Count > 0))
-                {
-                    // Drilldown on folders
-                    result = GetProjectItemRecursive(projectItem.ProjectItems, projectFile, folder + projectItem.Name + "/");
+                var current = projectItem.Name;
+                if (current == projectFile || folder + current == projectFile)
+                    return projectItem;
 
-                    // if the file does exist
+                var children = projectItem.ProjectItems;
+                if (children != null && children.Count > 0)
+                {
+                    var result = GetProjectItemRecursive(children, projectFile, folder + current + "/");
                     if (result != null)
-                    {
-                        // break out of loop & Recursion
-                        break;
-                    }
+                        return result;
                 }
             }
-            return result;
+            return null;
         }
         public static string MakeRelative(string fromAbsolutePath, string toDirectory)
         {
             if (!System.IO.Path.IsPathRooted(fromAbsolutePath))
                 return fromAbsolutePath;  // we can't make a relative if it's not rooted(C:\)  so we'll assume we already have a relative path.
 
-            if (!toDirectory[toDirectory.Length - 1].Equals("\\"))
+            if (!toDirectory[toDirectory.Length - 1].Equals('\\'))
                 toDirectory += "\\";
 
-            System.Uri from = new Uri(fromAbsolutePath);
-            System.Uri to = new Uri(toDirectory);
+            Uri from = new Uri(fromAbsolutePath);
+            Uri to = new Uri(toDirectory);
 
             Uri relativeUri = to.MakeRelativeUri(from);
             return relativeUri.ToString();
@@ -67,6 +60,8 @@ namespace CrmCodeGenerator.VSPackage.Helpers
 
         public static Property SetValue(this Properties props, string name, object value)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             foreach (Property p in props)
             {
                 if (p.Name == name)
@@ -86,16 +81,22 @@ namespace CrmCodeGenerator.VSPackage.Helpers
         }
         public static string GetDefaultNamespace(this Project project)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             return project.Properties.Item("DefaultNamespace").Value.ToString();
         }
         public static string GetProjectDirectory(this Project project)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             return System.IO.Path.GetDirectoryName(project.FullName);
         }
         public static Project GetSelectedProject(this EnvDTE80.DTE2 dte)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             Array projects = dte.ActiveSolutionProjects as Array;
-            if (projects.Length > 0)
+            if (projects?.Length > 0)
             {
                 return projects.GetValue(0) as Project;
             }
@@ -103,15 +104,20 @@ namespace CrmCodeGenerator.VSPackage.Helpers
         }
         public static Project GetSelectedProject(this DTE dte)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             Array projects = dte.ActiveSolutionProjects as Array;
-            if (projects.Length > 0)
+            if (projects?.Length > 0)
             {
                 return projects.GetValue(0) as Project;
             }
             return null;
         }
+        
         public static System.Windows.Window GetMainWindow(this EnvDTE80.DTE2 dte)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             if (dte == null)
             {
                 throw new ArgumentNullException("dte");
@@ -133,7 +139,9 @@ namespace CrmCodeGenerator.VSPackage.Helpers
         }
         public static System.Windows.Forms.Screen CurrentScreen(this Window window)
         {
-            return System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)window.Left, (int)window.Top));
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            return System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point(window.Left, window.Top));
         }
     }
 }

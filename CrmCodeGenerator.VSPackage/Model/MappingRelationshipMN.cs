@@ -1,31 +1,18 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Microsoft.Xrm.Sdk.Metadata;
 using CrmCodeGenerator.VSPackage.Helpers;
 
 namespace CrmCodeGenerator.VSPackage.Model
 {
     [Serializable]
-    public class MappingRelationshipMN : ICloneable
+    public class MappingRelationshipMN : MappingRelationship, ICloneable
     {
-        public CrmRelationshipAttribute Attribute { get; set; }
-
-        public string DisplayName { get; set; }
-        public string SchemaName { get; set; }
-        public string HybridName { get; set; }
-        public string ForeignKey { get; set; }
-        public string PrivateName { get; set; }
-        public string EntityRole { get; set; }
-        public string Type {get; set; }
         public bool IsSelfReferenced { get; set; }
-        public MappingEntity ToEntity { get; set; }
-
-        public static MappingRelationshipMN Parse(ManyToManyRelationshipMetadata rel, string ThisEntityLogicalName)
+     
+        public static MappingRelationshipMN Parse(ManyToManyRelationshipMetadata rel, string entityLogicalName)
         {
             var result = new MappingRelationshipMN();
-            if (rel.Entity1LogicalName == ThisEntityLogicalName)
+            if (rel.Entity1LogicalName == entityLogicalName)
             {
                 result.Attribute = new CrmRelationshipAttribute
                 {
@@ -51,13 +38,13 @@ namespace CrmCodeGenerator.VSPackage.Model
             result.EntityRole = "null";
             result.SchemaName = Naming.GetProperVariableName(rel.SchemaName);
             result.DisplayName = Naming.GetProperVariableName(rel.SchemaName);
-            if (rel.Entity1LogicalName == rel.Entity2LogicalName && rel.Entity1LogicalName == ThisEntityLogicalName)
+            if (rel.Entity1LogicalName == rel.Entity2LogicalName && rel.Entity1LogicalName == entityLogicalName)
             {
                 result.DisplayName = "Referenced" + result.DisplayName;
                 result.EntityRole = "Microsoft.Xrm.Sdk.EntityRole.Referenced";
                 result.IsSelfReferenced = true;
             }
-            if (result.DisplayName == ThisEntityLogicalName)
+            if (result.DisplayName == entityLogicalName)
             {
                 result.DisplayName += "1";   // this is what CrmSvcUtil does
             }
@@ -72,8 +59,8 @@ namespace CrmCodeGenerator.VSPackage.Model
 
         public object Clone()
         {
-            var newPerson = (MappingRelationshipMN)this.MemberwiseClone();
-            newPerson.Attribute = (CrmRelationshipAttribute)this.Attribute.Clone();
+            var newPerson = (MappingRelationshipMN)MemberwiseClone();
+            newPerson.Attribute = (CrmRelationshipAttribute)Attribute.Clone();
             return newPerson;
         }
     }

@@ -1,15 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Microsoft.Xrm.Sdk.Metadata;
-using System.Configuration;
 using Microsoft.Xrm.Sdk;
-using System.IO;
 using CrmCodeGenerator.VSPackage.Model;
-using CrmCodeGenerator.VSPackage.T4;
-using Microsoft.Xrm.Sdk.Messages;
-using CrmCodeGenerator.VSPackage.Helpers;
+using CrmCodeGenerator.VSPackage.Xrm;
 
 namespace CrmCodeGenerator.VSPackage
 {
@@ -19,13 +14,12 @@ namespace CrmCodeGenerator.VSPackage
     {
         public Settings Settings { get; set; }
 
-        public Mapper()
-        {
-        }
+        private EntityMetadata[] allEntities;
 
+        public Mapper() { }
         public Mapper(Settings settings)
         {
-            this.Settings = settings;
+            Settings = settings;
         }
 
         #region event handler
@@ -33,45 +27,55 @@ namespace CrmCodeGenerator.VSPackage
 
         protected void OnMessage(string message, string extendedMessage = "")
         {
-            if (this.Message != null)
-            {
-                Message(this, new MapperEventArgs { Message = message, MessageExtended = extendedMessage });
-            }
+            Message?.Invoke(this, new MapperEventArgs { Message = message, MessageExtended = extendedMessage });
         }
         #endregion
 
-        public Context MapContext()
-        {
-            var context = new Context();
-            context.Entities = GetEntities(GetConnection());
+        public Context CreateContext()
+        { 
+            var entitiesMapping = Settings.MappingSettings?.Entities;
+            if (allEntities == null)
+            {
+                using (var service = QuickConnection.Connect(Settings))
+                {
+                    OnMessage("Gathering metadata, this may take a few minutes...");
+                    allEntities = GetMetadataFromServer(service);
+                    OnMessage($"Entities Metadata retrived from server: {allEntities.Length}");
+                }
+            }
+
+            var selectedEntities = GetSelectedEntities(allEntities);
+            OnMessage($"Selected Entities Metadata: {selectedEntities.Count}");
+           
+            var entities = GetEntities(selectedEntities, entitiesMapping);
+            var enums = GetGlobalEnums(entities);
+            var context = new Context
+            {
+                Entities = entities,
+                Enums = enums
+            };
             SortEntities(context);
+            SortEnums(context);
             return context;
         }
 
-        internal Microsoft.Xrm.Sdk.IOrganizationService GetConnection()
+        public EntityMetadata[] GetMetadataFromServer(IOrganizationService service)
         {
-            OnMessage("Connecting to crm, please wait...");
+            bool includeUnpublish = Settings.IncludeUnpublish;
+            var selection = Settings.EntitiesSelected;
+            if (selection.Count > 20)
+                return service.GetAllEntitiesMetadata(includeUnpublish);
 
-            IOrganizationService sdk = null;
-
-            if (this.Settings.CrmConnection == null)
+            var selectedEntities = selection.ToList();
+            var isActivityPartySelected = selectedEntities.Any(x => x.Equals("activityparty"));
+            if (isActivityPartySelected == false)
             {
-                sdk = QuickConnection.Connect(this.Settings.CrmSdkUrl,
-                    this.Settings.Domain,
-                    this.Settings.Username,
-                    this.Settings.Password,
-                    this.Settings.CrmOrg);
-            }
-            else
-            {
-                sdk = this.Settings.CrmConnection;
+                selectedEntities.Add("activityparty");
             }
 
-            OnMessage("Connected to crm");
-
-            return sdk;
+            var result = service.GetEntitiesMetadata(selectedEntities, includeUnpublish);
+            return result;
         }
-
 
         public void SortEntities(Context context)
         {
@@ -88,94 +92,103 @@ namespace CrmCodeGenerator.VSPackage
 
             foreach (var e in context.Entities)
                 e.RelationshipsManyToOne = e.RelationshipsManyToOne.OrderBy(r => r.LogicalName).ToArray();
-            return;
         }
 
-        internal MappingEntity[] GetEntities(IOrganizationService service)
+        public void SortEnums(Context context)
         {
-            var entities = GetMetadataFromServer(service);
+            context.Enums = context.Enums.OrderBy(e => e.DisplayName).ToArray();
+        }
 
-            var selectedEntities = entities
-                .Where(r => this.Settings.EntitiesSelected.Contains(r.LogicalName))
-                    .Where(r =>
-                    {
-                        if (this.Settings.IncludeNonStandard)
-                            return true;
-                        else
-                            return !EntityHelper.NonStandard.Contains(r.LogicalName);
-                    })
-                    .ToList();
+        public MappingEnum[] GetGlobalEnums(MappingEntity[] entities)
+        {
+            var uniqueNames = new List<string>();
+            List<MappingEnum> globalEnums = new List<MappingEnum>();
 
-            if (selectedEntities.Any(r => r.IsActivity == true || r.IsActivityParty == true))
+            foreach (MappingEntity entity in entities)
             {
-                if (!selectedEntities.Any(r => r.LogicalName.Equals("activityparty")))
-                    selectedEntities.Add(entities.Where(r => r.LogicalName.Equals("activityparty")).Single());
+                foreach (MappingEnum e in entity.Enums.Where(w => w.IsGlobal))
+                {
+                    if (!uniqueNames.Contains(e.GlobalName))
+                    {
+                        globalEnums.Add(e);
+                        uniqueNames.Add(e.GlobalName);
+                    }
+                }
             }
 
-            OnMessage(string.Format("Found {0} entities", selectedEntities.Count));
+            return globalEnums.ToArray();
+        }
 
-            var mappedEntities = selectedEntities.Select(e => MappingEntity.Parse(e)).OrderBy(e => e.DisplayName).ToList();
+        public static MappingEntity[] GetEntities(IEnumerable<EntityMetadata> entitiesMetadata, Dictionary<string, EntityMappingSetting> entitiesMapping)
+        {
+            List<MappingEntity> mappedEntities = entitiesMetadata.Select(e =>
+                                                    {
+                                                        EntityMappingSetting mapping = null;
+                                                        entitiesMapping?.TryGetValue(e.LogicalName, out mapping);
+                                                        var result = MappingEntity.Parse(e, mapping);
+                                                        return result;
+                                                    })
+                                                  .OrderBy(e => e.DisplayName)
+                                                  .ToList();
+
             ExcludeRelationshipsNotIncluded(mappedEntities);
-            foreach (var ent in mappedEntities)
+            foreach (MappingEntity ent in mappedEntities)
             {
+                foreach (var field in ent.Fields)
+                {
+                    var lookupSingleType = field.LookupSingleType;
+                    if (string.IsNullOrWhiteSpace(lookupSingleType))
+                        continue;
+
+                    var mappedEntity = mappedEntities.FirstOrDefault(e => e.LogicalName == lookupSingleType);
+                    var mappedName = mappedEntity?.MappedName;
+                    if (string.IsNullOrWhiteSpace(mappedName) == false)
+                        field.LookupSingleType = mappedName;
+                }
                 foreach (var rel in ent.RelationshipsOneToMany)
                 {
-                    rel.ToEntity = mappedEntities.Where(e => e.LogicalName.Equals(rel.Attribute.ToEntity)).FirstOrDefault();
+                    rel.ToEntity = mappedEntities.FirstOrDefault(e => e.LogicalName.Equals(rel.Attribute.ToEntity));
                 }
                 foreach (var rel in ent.RelationshipsManyToOne)
                 {
-                    rel.ToEntity = mappedEntities.Where(e => e.LogicalName.Equals(rel.Attribute.ToEntity)).FirstOrDefault();
+                    rel.ToEntity = mappedEntities.FirstOrDefault(e => e.LogicalName.Equals(rel.Attribute.ToEntity));
                 }
                 foreach (var rel in ent.RelationshipsManyToMany)
                 {
-                    rel.ToEntity = mappedEntities.Where(e => e.LogicalName.Equals(rel.Attribute.ToEntity)).FirstOrDefault();
+                    rel.ToEntity = mappedEntities.FirstOrDefault(e => e.LogicalName.Equals(rel.Attribute.ToEntity));
                 }
             }
 
             return mappedEntities.ToArray();
         }
 
-        private EntityMetadata[] GetMetadataFromServer(IOrganizationService service)
+        public List<EntityMetadata> GetSelectedEntities(EntityMetadata[] entitiesMetadata)
         {
-            OnMessage("Gathering metadata, this may take a few minutes...");
-            if (this.Settings.EntitiesSelected.Count > 20)
+            string[] inMapping = Settings.MappingSettings?.Entities.Keys.ToArray();
+
+            IEnumerable<string> selection = inMapping ?? Settings.EntitiesSelected.ToArray();
+
+            if (Settings.IncludeNonStandard == false)
             {
-                return GetAllMetadataFromServer(service);
+                var nonStandard = EntityHelper.NonStandard.Except(selection);
+                selection = selection.Except(nonStandard);
             }
 
-            var entitiesToRetreive = this.Settings.EntitiesSelected.Select(x => x).ToList();
-            if (!entitiesToRetreive.Any(x => x.Equals("activityparty")))
+            var selectedMetadatas = entitiesMetadata.Where(e => selection.Contains(e.LogicalName)).ToList();
+            var activityParty = "activityparty";
+            if (selection.Contains(activityParty) &&
+                selectedMetadatas.Any(e => e.IsActivity == true || e.IsActivityParty == true))
             {
-                entitiesToRetreive.Add("activityparty");
+                if (!selectedMetadatas.Any(e => e.LogicalName.Equals(activityParty)))
+                {
+                    var activityparty = entitiesMetadata.SingleOrDefault(r => r.LogicalName.Equals(activityParty));
+                    if (activityparty != null)
+                        selectedMetadatas.Add(activityparty);
+                }
             }
-            
-            
-
-            var results = new List<EntityMetadata>();
-            foreach (var entity in entitiesToRetreive)
-            {
-                var req = new RetrieveEntityRequest();
-                req.EntityFilters = EntityFilters.All;
-                req.LogicalName = entity;
-                req.RetrieveAsIfPublished = this.Settings.IncludeUnpublish;
-                var res = (RetrieveEntityResponse)service.Execute(req);
-                results.Add(res.EntityMetadata);
-            }
-            return results.ToArray();
+            return selectedMetadatas;
         }
 
-        private EntityMetadata[] GetAllMetadataFromServer(IOrganizationService service)
-        {
-            //TODO should change this to early binding RetrieveAllEntitiesRequest
-            OrganizationRequest request = new OrganizationRequest("RetrieveAllEntities");
-            request.Parameters["EntityFilters"] = EntityFilters.All;
-            request.Parameters["RetrieveAsIfPublished"] = this.Settings.IncludeUnpublish;
-
-            //var entities = sdk.Execute(request).Results["EntityMetadata"] as EntityMetadata[];
-            var results = service.Execute(request);
-            var entities = results["EntityMetadata"] as EntityMetadata[];
-            return entities;
-        }
         private static void ExcludeRelationshipsNotIncluded(List<MappingEntity> mappedEntities)
         {
             foreach (var ent in mappedEntities)

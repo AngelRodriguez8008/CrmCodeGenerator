@@ -1,15 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26730.16
+VisualStudioVersion = 15.0.28307.168
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{FE93ED76-041D-4F4C-8569-FC05C2D982B7}"
-	ProjectSection(SolutionItems) = preProject
-		lib\microsoft.crm.sdk.proxy.dll = lib\microsoft.crm.sdk.proxy.dll
-		lib\microsoft.xrm.client.dll = lib\microsoft.xrm.client.dll
-		lib\microsoft.xrm.sdk.dll = lib\microsoft.xrm.sdk.dll
-	EndProjectSection
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrmCodeGenerator.VSPackage", "CrmCodeGenerator.VSPackage\CrmCodeGenerator.VSPackage.csproj", "{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrmCodeGenerator.Controls", "CrmCodeGenerator.Controls\CrmCodeGenerator.Controls.csproj", "{CE17A54E-0661-429F-AFDC-272E8668B14E}"
@@ -22,13 +15,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrmCodeGenerator.Tests", "CrmCodeGenerator.Tests\CrmCodeGenerator.Tests.csproj", "{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Debug|Mixed Platforms = Debug|Mixed Platforms
+		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
 		Release|Mixed Platforms = Release|Mixed Platforms
+		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
@@ -36,42 +33,52 @@ Global
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Debug|x64.ActiveCfg = Debug|x64
+		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Debug|x64.Build.0 = Debug|x64
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Debug|x86.ActiveCfg = Debug|Any CPU
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Release|x64.ActiveCfg = Release|x64
+		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Release|x64.Build.0 = Release|x64
 		{474A5BC2-BEFF-4F74-A029-7ED81B6633A8}.Release|x86.ActiveCfg = Release|Any CPU
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Debug|x64.ActiveCfg = Debug|x64
+		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Debug|x64.Build.0 = Debug|x64
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Debug|x86.ActiveCfg = Debug|Any CPU
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Release|x64.ActiveCfg = Release|x64
+		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Release|x64.Build.0 = Release|x64
 		{CE17A54E-0661-429F-AFDC-272E8668B14E}.Release|x86.ActiveCfg = Release|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Debug|x64.Build.0 = Debug|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Debug|x86.Build.0 = Debug|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Release|Any CPU.Build.0 = Release|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Release|x64.ActiveCfg = Release|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Release|x64.Build.0 = Release|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Release|x86.ActiveCfg = Release|Any CPU
+		{541D6A9F-83EC-4FB2-899F-2A1A16C75E34}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D8D66C51-B9FC-4D00-A22E-5D211DC14E70}
 		VisualSVNWorkingCopyRoot = .
-		SolutionGuid = {A6E84E50-393E-4D70-8B43-CF9CD3E460A2}
-	EndGlobalSection
-	GlobalSection(CrmCodeGeneration) = preSolution
-		UseSSL = True
-		UseIFD = False
-		UseOnline = False
-		UseOffice365 = False
-		ServerName = disco.crm.dynamics.com
-		ServerPort = 443
-		HomeRealm = 
-		Domain = 
-		WindowsAuthorization = False
-		Organization = DEV-CRM
-		IncludeEntities = account,contact,lead,opportunity,systemuser
-		IncludeNonStandard = False
 	EndGlobalSection
 EndGlobal

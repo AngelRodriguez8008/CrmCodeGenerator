@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Microsoft.Xrm.Sdk.Metadata;
 using CrmCodeGenerator.VSPackage.Helpers;
 
@@ -10,57 +9,121 @@ namespace CrmCodeGenerator.VSPackage.Model
     [Serializable]
     public class MappingEnum
     {
+        public string LogicalName { get; set; }
         public string DisplayName { get; set; }
+        public string GlobalName { get; set; }
+        public bool IsGlobal { get; set; }   
+        public bool IsTwoOption { get; set; }
         public MapperEnumItem[] Items { get; set; }
 
-        public static MappingEnum Parse(object attribute )
+        private string mappedName;
+        public string MappedName
         {
-            if (attribute is EnumAttributeMetadata)
-                return Parse(attribute as EnumAttributeMetadata);
+            get => string.IsNullOrWhiteSpace(mappedName) ? DisplayName : mappedName;
+            set => mappedName = value;
+        }
 
-            if (attribute is BooleanAttributeMetadata)
-                return Parse(attribute as BooleanAttributeMetadata);
+
+        public static MappingEnum Parse(object attribute)
+        {
+            if (attribute == null)
+                return null;
+            
+            if (attribute is EnumAttributeMetadata metadata)
+                return Parse(metadata);
+
+            if (attribute is BooleanAttributeMetadata option)
+                return Parse(option);
 
             return null;
         }
-
-        public static MappingEnum Parse(EnumAttributeMetadata picklist)
+        
+        public static MappingEnum Parse(StatusAttributeMetadata status, MappingEnum entityStates)
         {
-            var enm = new MappingEnum
-            {
-                DisplayName = Naming.GetProperVariableName(Naming.GetProperVariableName(picklist.SchemaName)),
-                Items =
-                    picklist.OptionSet.Options.Select(
-                        o => new MapperEnumItem
+            var enumItems = status.OptionSet.Options
+                .OfType<StatusOptionMetadata>()
+                .Select(
+                    o =>
+                    {
+                        var label = o.Label.UserLocalizedLabel.Label;
+                        var stateLabel = entityStates?.Items.FirstOrDefault(i => i.Value == o.State)?.Name ?? string.Empty;
+                        return new MapperEnumItem
                         {
                             Attribute = new CrmPicklistAttribute
                             {
-                                DisplayName = o.Label.UserLocalizedLabel.Label,
-                                Value = o.Value ?? 1
+                                DisplayName = label,
+                                Value = o.Value ?? 1,
+                                State = o.State
                             },
-                            Name = Naming.GetProperVariableName(o.Label.UserLocalizedLabel.Label)
-                        }
-                    ).ToArray()
+                            Name = $"{stateLabel}_{Naming.GetEnumItemName(label)}"
+                        };
+                    })
+                .ToArray();
+
+
+            var enm = new MappingEnum
+            {
+                LogicalName = status.LogicalName,
+                DisplayName = Naming.GetProperVariableName(Naming.GetProperVariableName(status.SchemaName)),
+                IsGlobal = status.OptionSet.IsGlobal.GetValueOrDefault(false),
+                IsTwoOption = false,
+                GlobalName = status.OptionSet.Name,
+                Items = enumItems
             };
-
             RenameDuplicates(enm);
+            return enm;
+        }
+    
+        public static MappingEnum Parse(EnumAttributeMetadata picklist)
+        {
+            var enumItems = picklist.OptionSet.Options.Select(
+                o =>
+                {
+                    var label = o.Label.UserLocalizedLabel.Label;
+                    return new MapperEnumItem
+                    {
+                        Attribute = new CrmPicklistAttribute
+                        {
+                            DisplayName = label,
+                            Value = o.Value ?? 1
+                        },
+                        Name = Naming.GetEnumItemName(label)
+                    };
+                }).ToArray();
 
+            var enm = new MappingEnum
+            {
+                LogicalName = picklist.LogicalName,
+                DisplayName = Naming.GetProperVariableName(Naming.GetProperVariableName(picklist.SchemaName)),
+                IsGlobal = picklist.OptionSet.IsGlobal.GetValueOrDefault(false),
+                IsTwoOption = false,
+                GlobalName = picklist.OptionSet.Name,
+                Items = enumItems
+            };
+            RenameDuplicates(enm);
             return enm;
         }
         public static MappingEnum Parse(BooleanAttributeMetadata twoOption)
         {
-            var enm = new MappingEnum();
-            enm.DisplayName = Naming.GetProperVariableName(Naming.GetProperVariableName(twoOption.SchemaName));
-            enm.Items = new MapperEnumItem[2];
-            enm.Items[0] = MapBoolOption(twoOption.OptionSet.TrueOption);
-            enm.Items[1] = MapBoolOption(twoOption.OptionSet.FalseOption);
+            var enm = new MappingEnum
+            { 
+                LogicalName = twoOption.LogicalName,
+                DisplayName = Naming.GetProperVariableName(Naming.GetProperVariableName(twoOption.SchemaName)),
+                IsGlobal = false,
+                IsTwoOption = true,
+                GlobalName = null,
+                Items = new []
+                {
+                    MapBoolOption(twoOption.OptionSet.TrueOption),
+                    MapBoolOption(twoOption.OptionSet.FalseOption)
+                }
+            };
             RenameDuplicates(enm);
-
             return enm;
         }
         private static void RenameDuplicates(MappingEnum enm)
         {
-            Dictionary<string, int> duplicates = new Dictionary<string, int>();
+            var duplicates = new Dictionary<string, int>();
             foreach (var i in enm.Items)
                 if (duplicates.ContainsKey(i.Name))
                 {
@@ -73,18 +136,18 @@ namespace CrmCodeGenerator.VSPackage.Model
 
         private static MapperEnumItem MapBoolOption(OptionMetadata option)
         {
-            var results = new MapperEnumItem()
+            var label = option.Label.UserLocalizedLabel.Label;
+            var results = new MapperEnumItem
             {
-                Attribute = new CrmPicklistAttribute()
+                Attribute = new CrmPicklistAttribute
                 {
-                    DisplayName = option.Label.UserLocalizedLabel.Label,
-                    Value = (int)option.Value
+                    DisplayName = label,
+                    Value = option.Value ?? -1
                 },
-                Name = Naming.GetProperVariableName(option.Label.UserLocalizedLabel.Label)
+                Name = Naming.GetEnumItemName(label)
             };
             return results;
         }
-
     }
 
     [Serializable]
@@ -92,12 +155,6 @@ namespace CrmCodeGenerator.VSPackage.Model
     {
         public CrmPicklistAttribute Attribute { get; set; }
         public string Name { get; set; }
-        public int Value
-        {
-            get
-            {
-                return Attribute.Value;
-            }
-        }
+        public int Value => Attribute.Value;
     }
 }

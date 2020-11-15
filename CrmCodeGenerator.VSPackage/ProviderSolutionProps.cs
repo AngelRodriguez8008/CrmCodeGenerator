@@ -10,8 +10,6 @@ PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
 ***************************************************************************/
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Globalization;
 using Microsoft.VisualStudio.Shell;
 
@@ -50,6 +48,6 @@ namespace CrmCodeGenerator.VSPackage
             context.RemoveKey(string.Format(CultureInfo.InvariantCulture, "{0}\\{1}", "SolutionPersistence", PropName));
         }
 
-        public string PropName { get { return _propName; } }
+        public string PropName => _propName;
     }
 }

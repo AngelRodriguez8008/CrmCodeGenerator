@@ -25,8 +25,8 @@ namespace CrmCodeGenerator.Controls
         /// </summary>
         public FileSelectorMode Mode
         {
-            get { return (FileSelectorMode)GetValue(ModeProperty); }
-            set { SetValue(ModeProperty, value); }
+            get => (FileSelectorMode)GetValue(ModeProperty);
+            set => SetValue(ModeProperty, value);
         }
 
 
@@ -58,8 +58,8 @@ namespace CrmCodeGenerator.Controls
         /// </summary>
         public string FileFilter
         {
-            get { return (string)GetValue(FileFilterProperty); }
-            set { SetValue(FileFilterProperty, value); }
+            get => (string)GetValue(FileFilterProperty);
+            set => SetValue(FileFilterProperty, value);
         }
 
 
@@ -91,8 +91,8 @@ namespace CrmCodeGenerator.Controls
         /// </summary>
         public string FileName
         {
-            get { return (string)GetValue(FileNameProperty); }
-            set { SetValue(FileNameProperty, value); }
+            get => (string)GetValue(FileNameProperty);
+            set => SetValue(FileNameProperty, value);
         }
 
 
@@ -125,8 +125,8 @@ namespace CrmCodeGenerator.Controls
         /// </summary>
         public string Folder
         {
-            get { return (string)GetValue(FolderProperty); }
-            set { SetValue(FolderProperty, value); }
+            get => (string)GetValue(FolderProperty);
+            set => SetValue(FolderProperty, value);
         }
 
 
@@ -162,8 +162,8 @@ namespace CrmCodeGenerator.Controls
         /// </summary>
         public int MaxDisplayLength
         {
-            get { return (int)GetValue(MaxDisplayLengthProperty); }
-            set { SetValue(MaxDisplayLengthProperty, value); }
+            get => (int)GetValue(MaxDisplayLengthProperty);
+            set => SetValue(MaxDisplayLengthProperty, value);
         }
 
 
@@ -288,20 +288,19 @@ namespace CrmCodeGenerator.Controls
             if (!System.IO.Path.IsPathRooted(fromAbsolutePath))
                 return fromAbsolutePath;  // we can't make a relative if it's not rooted(C:\)  so we'll assume we already have a relative path.
 
-            if (!toDirectory[toDirectory.Length - 1].Equals("\\"))
-                toDirectory += "\\";
+            if (toDirectory[toDirectory.Length - 1] != '\\')
+                toDirectory += '\\';
 
-            if (!fromAbsolutePath[fromAbsolutePath.Length - 1].Equals("\\"))
-                fromAbsolutePath += "\\";
+            if (fromAbsolutePath[fromAbsolutePath.Length - 1] != '\\')
+                fromAbsolutePath += '\\';
 
-            System.Uri from = new Uri(fromAbsolutePath);
-            System.Uri to = new Uri(toDirectory);
+            Uri from = new Uri(fromAbsolutePath);
+            Uri to = new Uri(toDirectory);
 
             Uri relativeUri = to.MakeRelativeUri(from);
             Uri t2 = from.MakeRelativeUri(to);
             return relativeUri.ToString();
         }
-
     }
 
     /// <summary>

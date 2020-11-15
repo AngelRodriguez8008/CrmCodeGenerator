@@ -1,8 +1,6 @@
 ﻿using System;
 using System.IO;
 using Microsoft.VisualStudio.OLE.Interop;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace CrmCodeGenerator.VSPackage.Helpers
 {
@@ -12,27 +10,18 @@ namespace CrmCodeGenerator.VSPackage.Helpers
     /// </summary>
     public class StreamEater : Stream
     {
-        private IStream _iStream;
+        private readonly IStream _iStream;
 
         public StreamEater(IStream streamFood)
         {
             _iStream = streamFood;
         }
 
-        public override bool CanRead
-        {
-            get { return _iStream != null; }
-        }
+        public override bool CanRead => _iStream != null;
 
-        public override bool CanSeek
-        {
-            get { return true; }
-        }
+        public override bool CanSeek => true;
 
-        public override bool CanWrite
-        {
-            get { return true; }
-        }
+        public override bool CanWrite => true;
 
         public override void Flush()
         {
@@ -52,15 +41,9 @@ namespace CrmCodeGenerator.VSPackage.Helpers
 
         public override long Position
         {
-            get
-            {
-                return Seek(0, SeekOrigin.Current);
-            }
+            get => Seek(0, SeekOrigin.Current);
 
-            set
-            {
-                Seek(value, SeekOrigin.Begin);
-            }
+            set => Seek(value, SeekOrigin.Begin);
         }
 
         public override int Read(byte[] buffer, int offset, int count)
@@ -101,8 +84,10 @@ namespace CrmCodeGenerator.VSPackage.Helpers
             if (!CanWrite)
                 throw new InvalidOperationException();
 
-            ULARGE_INTEGER ul = new ULARGE_INTEGER();
-            ul.QuadPart = (ulong)value;
+            ULARGE_INTEGER ul = new ULARGE_INTEGER
+            {
+                QuadPart = (ulong)value
+            };
             _iStream.SetSize(ul);
         }
 

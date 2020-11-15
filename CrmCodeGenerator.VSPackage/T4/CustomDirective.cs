@@ -32,7 +32,7 @@ namespace CrmCodeGenerator.VSPackage.T4
         public override void ProcessDirective(string directiveName, IDictionary<string, string> arguments)
         {
             string name = arguments["name"];
-            string fieldName = string.Format("_{0}", arguments["name"]);
+            string fieldName = $"_{arguments["name"]}";
             string type = arguments["type"];
 
             var field = new CodeMemberField(type, fieldName) { Attributes = MemberAttributes.Private };

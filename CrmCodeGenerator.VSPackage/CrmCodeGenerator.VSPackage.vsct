@@ -19,7 +19,7 @@
 
   <!--This header contains the command ids for the menus provided by the shell. -->
   <Extern href="vsshlids.h"/>
-
+  <Include href="KnownImageIds.vsct" />
 
 
 
@@ -34,7 +34,7 @@
     group; your package should define its own command set in order to avoid collisions  
     with command ids defined by other packages. -->
 
-    
+
     <!-- In this section you can define new menu groups. A menu group is a container for 
          other menus or buttons (commands); from a visual point of view you can see the 
          group as the part of a menu contained between two lines. The parent of a group 
@@ -44,11 +44,11 @@
       <Group guid="guidCrmCodeGenerator_VSPackageCmdSet" id="MyMenuGroup" priority="0x0600">
         <Parent guid="guidSHLMainMenu" id="IDM_VS_MENU_TOOLS"/>
       </Group>
-      
+
 
 
     </Groups>
-    
+
     <!--Buttons section. -->
     <!--This section defines the elements the user can interact with, like a menu command or a button 
         or combo box in a toolbar. -->
@@ -61,7 +61,7 @@
               <CommandFlag>DynamicVisibility</CommandFlag>
           If you do not want an image next to your command, remove the Icon node /> -->
 
-      <Button guid="guidCrmCodeGenerator_VSPackageCmdSet" id="cmdidAddTemplate" priority="0x0100" type="Button">
+      <Button guid="guidCrmCodeGenerator_VSPackageCmdSet" id="AddTemplateCmdId" priority="0x0100" type="Button">
         <Parent guid="guidCrmCodeGenerator_VSPackageCmdSet" id="MyMenuGroup" />
         <Icon guid="guidImages" id="bmpPic1" />
         <Strings>
@@ -69,8 +69,19 @@
         </Strings>
       </Button>
 
+      <Button guid="guidCrmCodeGenerator_VSPackageCmdSet" id="ApplyCustomToolCmdId" priority="0x0100" type="Button">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_CTXT_ITEM_INCLUDEEXCLUDE"/>
+        <Icon guid="ImageCatalogGuid" id="TriggerScript"/>
+        <CommandFlag>IconIsMoniker</CommandFlag>
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <Strings>
+          <ButtonText>Generate Code</ButtonText>
+        </Strings>
+      </Button>
+
     </Buttons>
-   
+
+
     <!--The bitmaps section is used to define the bitmaps that are used for the commands.-->
     <Bitmaps>
       <!--  The bitmap id is defined in a way that is a little bit different from the others: 
@@ -79,29 +90,28 @@
             inside a button definition. An important aspect of this declaration is that the element id 
             must be the actual index (1-based) of the bitmap inside the bitmap strip. -->
       <Bitmap guid="guidImages" href="Resources\Images.png" usedList="bmpPic1, bmpPic2, bmpPicSearch, bmpPicX, bmpPicArrows"/>
-      
+
     </Bitmaps>
- 
+
   </Commands>
 
-
-
-
+  <VisibilityConstraints>
+    <VisibilityItem guid="guidCrmCodeGenerator_VSPackageCmdSet" id="ApplyCustomToolCmdId"  context="guidUIContext"/>
+  </VisibilityConstraints>
 
   <Symbols>
     <!-- This is the package guid. -->
     <GuidSymbol name="guidCrmCodeGenerator_VSPackagePkg" value="{d57cc223-384b-41cc-b5d0-814a71ce8d61}" />
-    
+    <GuidSymbol name="guidUIContext" value="{69760bd3-80f0-4901-818d-c4656aaa08e9}" />
+
     <!-- This is the guid used to group the menu commands together -->
     <GuidSymbol name="guidCrmCodeGenerator_VSPackageCmdSet" value="{275915bd-3cf8-4fa5-b6fb-9c03e9699b82}">
 
       <IDSymbol name="MyMenuGroup" value="0x1020" />
-      <IDSymbol name="cmdidCrmCodeGenerator" value="0x0100" />
-      <IDSymbol name="cmdidAddTemplate" value="0x0200" />
+      <IDSymbol name="AddTemplateCmdId" value="0x0200" />
+      <IDSymbol name="ApplyCustomToolCmdId" value="0x0100" />
     </GuidSymbol>
-    
-    
-    
+
     <GuidSymbol name="guidImages" value="{5243878e-1841-4305-b480-bd4177b3485a}" >
       <IDSymbol name="bmpPic1" value="1" />
       <IDSymbol name="bmpPic2" value="2" />

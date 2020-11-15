@@ -11,5 +11,5 @@ namespace CrmCodeGenerator.VSPackage
         public const string guidCrmCodeGenerator_SimpleGenerator = "BB69ADDB-6AB5-4E29-B263-F918D86D1CC0";
 
         public static readonly Guid guidCrmCodeGenerator_VSPackageCmdSet = new Guid(guidCrmCodeGenerator_VSPackageCmdSetString);
-    };
+    }
 }

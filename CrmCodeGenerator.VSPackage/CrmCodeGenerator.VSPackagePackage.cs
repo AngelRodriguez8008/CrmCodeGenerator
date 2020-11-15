@@ -3,17 +3,15 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.ComponentModel.Design;
-using Microsoft.Win32;
+using System.Threading;
 using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.OLE.Interop;
 using Microsoft.VisualStudio.Shell;
-using EnvDTE;
-using Microsoft.VisualStudio.TextTemplating.VSHost;
-using Microsoft.VisualStudio.TextTemplating;
 using CrmCodeGenerator.VSPackage.Helpers;
-using CrmCodeGenerator.VSPackage.Dialogs;
 using CrmCodeGenerator.VSPackage.Model;
+using Microsoft.VisualStudio.TextTemplating.VSHost;
+using Task = System.Threading.Tasks.Task;
 
 namespace CrmCodeGenerator.VSPackage
 {
@@ -29,21 +27,25 @@ namespace CrmCodeGenerator.VSPackage
     /// </summary>
     // This attribute tells the PkgDef creation utility (CreatePkgDef.exe) that this class is
     // a package.
-    [PackageRegistration(UseManagedResourcesOnly = true)]
+    [PackageRegistration(AllowsBackgroundLoading = true, UseManagedResourcesOnly = true)]
     // This attribute is used to register the information needed to show this package
     // in the Help/About dialog of Visual Studio.
     [InstalledProductRegistration("#110", "#112", "1.0", IconResourceID = 400)]
     //this causes the class to load when VS starts [ProvideAutoLoad("ADFC4E64-0397-11D1-9F4E-00A0C911004F")]
-    [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionHasSingleProject_string)]
-    [ProvideAutoLoad(VSConstants.UICONTEXT.SolutionHasMultipleProjects_string)]
+    //[ProvideAutoLoad(VSConstants.UICONTEXT.SolutionHasSingleProject_string)]
+    //[ProvideAutoLoad(VSConstants.UICONTEXT.SolutionHasMultipleProjects_string)]
     // This attribute is needed to let the shell know that this package exposes some menus.
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [Guid(GuidList.guidCrmCodeGenerator_VSPackagePkgString)]
     [ProvideSolutionProps(_strSolutionPersistanceKey)]
-    public sealed class CrmCodeGenerator_VSPackagePackage : Package, IVsPersistSolutionProps, IVsPersistSolutionOpts, IVsSolutionEvents3
+    [ProvideCodeGenerator(typeof(XrmCodeGenerator), XrmCodeGenerator.Name, XrmCodeGenerator.Description, true)]
+    [ProvideUIContextRule("69760bd3-80f0-4901-818d-c4656aaa08e9", // Must match the GUID in the .vsct file
+        name: "UI Context",
+        expression: "tt", // This will make the button only show on .tt files (Ex: js | css | html)
+        termNames: new[] { "tt" },
+        termValues: new[] { "HierSingleSelectionName:.tt$" })]
+    public sealed class CrmCodeGenerator_VsPackagePackage : AsyncPackage, IVsPersistSolutionProps, IVsSolutionEvents3
     {
-
-
         /// <summary>
         /// Default constructor of the package.
         /// Inside this method you can place any initialization code that does not require 
@@ -51,37 +53,33 @@ namespace CrmCodeGenerator.VSPackage
         /// not sited yet inside Visual Studio environment. The place to do all the other 
         /// initialization is the Initialize method.
         /// </summary>
-        public CrmCodeGenerator_VSPackagePackage()
+        public CrmCodeGenerator_VsPackagePackage()
         {
-            Debug.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering constructor for: {0}", this.ToString()));
+            Debug.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering constructor for: {0}", ToString()));
         }
-
-
-
+        
         /////////////////////////////////////////////////////////////////////////////
         // Overridden Package Implementation
         #region Package Members
-
-        /// <summary>
-        /// Initialization of the package; this method is called right after the package is sited, so this is the place
-        /// where you can put all the initialization code that rely on services provided by VisualStudio.
-        /// </summary>
-        protected override void Initialize()
+            
+        protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
         {
-            Debug.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering Initialize() of: {0}", this.ToString()));
-            base.Initialize();
+         //   Debug.WriteLine(string.Format(CultureInfo.CurrentCulture, "Entering InitializeAsync() of: {0}", this.ToString()));
 
-            // Add our command handlers for menu (commands must exist in the .vsct file)
-            OleMenuCommandService mcs = GetService(typeof(IMenuCommandService)) as OleMenuCommandService;
-            if (null != mcs)
-            {
-                CommandID templateCmd = new CommandID(GuidList.guidCrmCodeGenerator_VSPackageCmdSet, (int)PkgCmdIDList.cmdidAddTemplate);
-                MenuCommand tempalteItem = new MenuCommand(AddTemplateCallback, templateCmd);
-                mcs.AddCommand(tempalteItem);
-            }
-            Configuration.Instance.DTE = this.GetService(typeof(SDTE)) as EnvDTE80.DTE2;
+            // Request any services while on the background thread
+            var commandService = await GetServiceAsync((typeof(IMenuCommandService))) as IMenuCommandService;
+
+            // Switch to the main thread before initializing the AddTemplateButton command
+            await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
+
+            // Initialize the AddTemplateButton command and pass it the commandService
+            AddTemplateButton.Initialize(this, commandService);
+
+            // Initialize the ApplyCustomTool Command
+            await ApplyCustomTool.InitializeAsync(this);
+
+            Configuration.Instance.DTE = await GetServiceAsync(typeof(SDTE)) as EnvDTE80.DTE2;
             AdviseSolutionEvents();
-
         }
 
         protected override void Dispose(bool disposing)
@@ -91,41 +89,39 @@ namespace CrmCodeGenerator.VSPackage
             base.Dispose(disposing);
         }
 
-        private IVsSolution solution = null;
-        private uint _handleCookie;
+        private IVsSolution solution;
+        private uint handleCookie;
         private void AdviseSolutionEvents()
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             UnadviseSolutionEvents();
 
-            solution = this.GetService(typeof(SVsSolution)) as IVsSolution;
+            solution = GetService(typeof(SVsSolution)) as IVsSolution;
 
-            if (solution != null)
-            {
-                solution.AdviseSolutionEvents(this, out _handleCookie);
-            }
+            solution?.AdviseSolutionEvents(this, out handleCookie);
         }
 
         private void UnadviseSolutionEvents()
         {
-            if (solution != null)
+            ThreadHelper.ThrowIfNotOnUIThread();
+            if (solution == null)
+                return;
+            
+            if (handleCookie != uint.MaxValue)
             {
-                if (_handleCookie != uint.MaxValue)
-                {
-                    solution.UnadviseSolutionEvents(_handleCookie);
-                    _handleCookie = uint.MaxValue;
-                }
-
-                solution = null;
+                solution.UnadviseSolutionEvents(handleCookie);
+                handleCookie = uint.MaxValue;
             }
+
+            solution = null;
         }
 
         #endregion
 
-
-
         #region IVsPersistSolutionProps Implementation Code
 
-        private Settings settings = Configuration.Instance.Settings;
+        private readonly Settings settings = Configuration.Instance.Settings;
 
         private const string _strSolutionPersistanceKey = "CrmCodeGeneration";
         private const string _strCrmUrl = "CrmUrl";
@@ -147,15 +143,18 @@ namespace CrmCodeGenerator.VSPackage
         #region Solution Properties
         public int QuerySaveSolutionProps(IVsHierarchy pHierarchy, VSQUERYSAVESLNPROPS[] pqsspSave)
         {
-            if (pHierarchy != null)   // if this contains something, then VS is asking for Solution Properties of a PROJECT,  
+            if (pHierarchy != null) // if this contains something, then VS is asking for Solution Properties of a PROJECT,  
                 pqsspSave[0] = VSQUERYSAVESLNPROPS.QSP_HasNoProps;
-            else if (settings.Dirty)
-                pqsspSave[0] = VSQUERYSAVESLNPROPS.QSP_HasDirtyProps;
             else
-                pqsspSave[0] = VSQUERYSAVESLNPROPS.QSP_HasNoDirtyProps;
+            {
+                if (settings.Dirty)
+                    pqsspSave[0] = VSQUERYSAVESLNPROPS.QSP_HasDirtyProps;
+                else
+                    pqsspSave[0] = VSQUERYSAVESLNPROPS.QSP_HasNoDirtyProps;
+            }
             return VSConstants.S_OK;
         }
-        public int SaveSolutionProps([InAttribute] IVsHierarchy pHierarchy, [InAttribute] IVsSolutionPersistence pPersistence)
+        public int SaveSolutionProps([In] IVsHierarchy pHierarchy, [In] IVsSolutionPersistence pPersistence)
         {
             // This function gets called by the shell after determining the package has dirty props.
             // The package will pass in the key under which it wants to save its properties, 
@@ -165,22 +164,25 @@ namespace CrmCodeGenerator.VSPackage
             // When the solution will be reopened, the IDE will call our package to load them back before the projects in the solution are actually open
             // This could help if the source control package needs to persist information like projects translation tables, that should be read from the suo file
             // and should be available by the time projects are opened and the shell start calling IVsSccEnlistmentPathTranslation functions.
-            //if(settings.Dirty)
-            if(settings.IsActive)
+            ThreadHelper.ThrowIfNotOnUIThread();
+            
+            if (settings.IsActive && settings.Dirty)
                 pPersistence.SavePackageSolutionProps(1, null, this, _strSolutionPersistanceKey);
 
             settings.Dirty = false;
 
             return VSConstants.S_OK;
         }
-        public int WriteSolutionProps([InAttribute] IVsHierarchy pHierarchy, [InAttribute] string pszKey, [InAttribute] IPropertyBag pPropBag)
+        public int WriteSolutionProps([In] IVsHierarchy pHierarchy, [In] string pszKey, [In] IPropertyBag pPropBag)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             pPropBag.WriteBool(_strUseSSL, settings.UseSSL);
             pPropBag.WriteBool(_strUseIFD, settings.UseIFD);
             pPropBag.WriteBool(_strUseOnline, settings.UseOnline);
             pPropBag.WriteBool(_strUseOffice365, settings.UseOffice365);
             pPropBag.WriteBool(_strUseOffice365, settings.UseOffice365);
-            
+
             pPropBag.Write(_strServerName, settings.ServerName);
             pPropBag.Write(_strServerPort, settings.ServerPort);
             pPropBag.Write(_strHomeRealm, settings.HomeRealm);
@@ -190,7 +192,7 @@ namespace CrmCodeGenerator.VSPackage
             pPropBag.Write(_strUseWindowsAuth, settings.UseWindowsAuth.ToString());
             //pPropBag.Write(_strUsername, settings.Username);
             //pPropBag.Write(_strPassword, settings.Password);
-            
+
             pPropBag.Write(_strOrganization, settings.CrmOrg);
             pPropBag.Write(_strIncludeEntities, settings.EntitiesToIncludeString);
             pPropBag.WriteBool(_strIncludeNonStandard, settings.IncludeNonStandard);
@@ -200,52 +202,54 @@ namespace CrmCodeGenerator.VSPackage
         }
         public int ReadSolutionProps(IVsHierarchy pHierarchy, string pszProjectName, string pszProjectMk, string pszKey, int fPreLoad, IPropertyBag pPropBag)
         {
-            if (_strSolutionPersistanceKey.CompareTo(pszKey) == 0)
+            if (string.Compare(_strSolutionPersistanceKey, pszKey, StringComparison.Ordinal) != 0)
+                return VSConstants.S_OK;
+
+            var defaultServer = "crm.dynamics.com";
+            var defaultSSL = false;
+            var defaultPort = "";
+            var defaultOnline = true;
+
+
+            // This is to convert the earlier settings
+            var oldServerSetting = pPropBag.Read(_strCrmUrl, "");
+            if (!string.IsNullOrWhiteSpace(oldServerSetting))
             {
-                var defaultServer = "crm.dynamics.com";
-                var defaultSSL = false;
-                var defaultPort = "";
-                var defaultOnline = true;
-
-
-                // This is to convert the earlier settings
-                var oldServerSetting = pPropBag.Read(_strCrmUrl, "");
-                if (!string.IsNullOrWhiteSpace(oldServerSetting))
-                {
-                    Uri oldServer = new Uri(oldServerSetting);   
-                    defaultServer = oldServer.Host;
-                    defaultSSL = (oldServer.Scheme == "https");
-                    defaultPort = oldServer.Port.ToString();
-                    defaultOnline = (oldServer.Host.ToLower() == "crm.dynamics.com");
-                }
-
-
-                settings.ServerName = pPropBag.Read(_strServerName, defaultServer);
-                settings.UseSSL = pPropBag.Read(_strUseSSL, defaultSSL);
-                settings.UseIFD = pPropBag.Read(_strUseIFD, false);
-                settings.UseOnline = pPropBag.Read(_strUseOnline, defaultOnline);
-                settings.UseOffice365 = pPropBag.Read(_strUseOffice365, defaultOnline);
-                settings.ServerPort = pPropBag.Read(_strServerPort, defaultPort);
-                settings.HomeRealm = pPropBag.Read(_strHomeRealm, "");
-                
-                //settings.Username = pPropBag.Read(_strUsername, "");
-                //settings.Password = pPropBag.Read(_strPassword, "");
-                settings.Domain = pPropBag.Read(_strDomain, "");
-                settings.UseWindowsAuth = pPropBag.Read(_strUseWindowsAuth, false);
-                settings.IsActive = pPropBag.HasSetting(_strOrganization);
-                settings.CrmOrg = pPropBag.Read(_strOrganization, "DEV-CRM");
-                settings.EntitiesToIncludeString = pPropBag.Read(_strIncludeEntities, "account, contact, systemuser");
-
-                settings.IncludeNonStandard = pPropBag.Read(_strIncludeNonStandard, false);
-
-                settings.Dirty = false;
+                Uri oldServer = new Uri(oldServerSetting);
+                defaultServer = oldServer.Host;
+                defaultSSL = (oldServer.Scheme == "https");
+                defaultPort = oldServer.Port.ToString();
+                defaultOnline = (oldServer.Host.ToLower() == "crm.dynamics.com");
             }
+
+
+            settings.ServerName = pPropBag.Read(_strServerName, defaultServer);
+            settings.UseSSL = pPropBag.Read(_strUseSSL, defaultSSL);
+            settings.UseIFD = pPropBag.Read(_strUseIFD, false);
+            settings.UseOnline = pPropBag.Read(_strUseOnline, defaultOnline);
+            settings.UseOffice365 = pPropBag.Read(_strUseOffice365, defaultOnline);
+            settings.ServerPort = pPropBag.Read(_strServerPort, defaultPort);
+            settings.HomeRealm = pPropBag.Read(_strHomeRealm, "");
+
+            //settings.Username = pPropBag.Read(_strUsername, "");
+            //settings.Password = pPropBag.Read(_strPassword, "");
+            settings.Domain = pPropBag.Read(_strDomain, "");
+            settings.UseWindowsAuth = pPropBag.Read(_strUseWindowsAuth, false);
+            settings.IsActive = pPropBag.HasSetting(_strOrganization);
+            settings.CrmOrg = pPropBag.Read(_strOrganization, "DEV-CRM");
+            settings.EntitiesToIncludeString = pPropBag.Read(_strIncludeEntities, "account, contact, systemuser");
+
+            settings.IncludeNonStandard = pPropBag.Read(_strIncludeNonStandard, false);
+
+            settings.Dirty = false;
             return VSConstants.S_OK;
         }
         #endregion
         #region User Options
         public int LoadUserOptions(IVsSolutionPersistence pPersistence, uint grfLoadOpts)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
             pPersistence.LoadPackageUserOpts(this, _strSolutionPersistanceKey + _strUsername);
             pPersistence.LoadPackageUserOpts(this, _strSolutionPersistanceKey + _strPassword);
             return VSConstants.S_OK;
@@ -274,8 +278,6 @@ namespace CrmCodeGenerator.VSPackage
                         case _strSolutionPersistanceKey + _strPassword:
                             settings.Password = value;
                             break;
-                        default:
-                            break;
                     }
                 }
                 return VSConstants.S_OK;
@@ -288,6 +290,7 @@ namespace CrmCodeGenerator.VSPackage
 
         public int SaveUserOptions(IVsSolutionPersistence pPersistence)
         {
+            ThreadHelper.ThrowIfNotOnUIThread();
             pPersistence.SavePackageUserOpts(this, _strSolutionPersistanceKey + _strUsername);
             pPersistence.SavePackageUserOpts(this, _strSolutionPersistanceKey + _strPassword);
             return VSConstants.S_OK;
@@ -333,93 +336,8 @@ namespace CrmCodeGenerator.VSPackage
         {
             return VSConstants.S_OK;
         }
-
         #endregion
 
-        /// <summary>
-        /// This function is the callback used to execute a command when the a menu item is clicked.
-        /// See the Initialize method to see how the menu item is associated to this function using
-        /// the OleMenuCommandService service and the MenuCommand class.
-        /// </summary>
-        private void AddTemplateCallback(object sender, EventArgs args)
-        {
-            try
-            {
-                AddTemplate();
-                settings.IsActive = true;  // start saving the properties to the *.sln
-            }
-            catch (UserException e)
-            {
-                VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider, e.Message, "Error", OLEMSGICON.OLEMSGICON_WARNING, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-            }
-            catch (Exception e)
-            {
-                var error = e.Message + "\n" + e.StackTrace;
-                System.Windows.MessageBox.Show(error, "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
-            }
-        }
-
-        private void AddTemplate()
-        {
-            var dte2 = this.GetService(typeof(SDTE)) as EnvDTE80.DTE2;
-
-            var project = dte2.GetSelectedProject();
-            if (project == null || string.IsNullOrWhiteSpace(project.FullName))
-            {
-                throw new UserException("Please select a project first");
-            }
-
-            var m = new AddTemplate(dte2, project);
-            m.Closed += (sender, e) =>
-            {
-                // logic here Will be called after the child window is closed
-                if (((AddTemplate)sender).Canceled == true)
-                    return;
-
-                var templatePath = System.IO.Path.GetFullPath(System.IO.Path.Combine(project.GetProjectDirectory(), m.Props.Template));  //GetFullpath removes un-needed relative paths  (ie if you are putting something in the solution directory)
-
-                if (System.IO.File.Exists(templatePath))
-                {
-                    var results = VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider, "'" + templatePath + "' already exists, are you sure you want to overwrite?", "Overwrite", OLEMSGICON.OLEMSGICON_QUERY, OLEMSGBUTTON.OLEMSGBUTTON_YESNOCANCEL, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-                    if (results != 6)
-                        return;
-
-                    //if the window is open we have to close it before we overwrite it.
-                    var pi = project.GetProjectItem(m.Props.Template);
-                    if(pi != null && pi.Document != null)
-                        pi.Document.Close(vsSaveChanges.vsSaveChangesNo);
-                }
-
-                var templateSamplesPath = System.IO.Path.Combine(DteHelper.AssemblyDirectory(), @"Resources\Templates");
-                var defaultTemplatePath = System.IO.Path.Combine(templateSamplesPath, m.DefaultTemplate.SelectedValue.ToString());
-                if (!System.IO.File.Exists(defaultTemplatePath))
-                {
-                    throw new UserException("T4Path: " + defaultTemplatePath + " is missing or you can access it.");
-                }
-
-                var dir = System.IO.Path.GetDirectoryName(templatePath);
-                if (!System.IO.Directory.Exists(dir))
-                {
-                    System.IO.Directory.CreateDirectory(dir);
-                }
-
-                Status.Update("Adding " + templatePath + " to project");
-                // When you add a TT file to visual studio, it will try to automatically compile it, 
-                // if there is error (and there will be error because we have custom generator) 
-                // the error will persit until you close Visual Studio. The solution is to add 
-                // a blank file, then overwrite it
-                // http://stackoverflow.com/questions/17993874/add-template-file-without-custom-tool-to-project-programmatically
-                var blankTemplatePath = System.IO.Path.Combine(DteHelper.AssemblyDirectory(), @"Resources\Templates\Blank.tt");
-                System.IO.File.Copy(blankTemplatePath, templatePath, true);
-
-                var p = project.ProjectItems.AddFromFile(templatePath);
-                p.Properties.SetValue("CustomTool", "");
-
-                System.IO.File.Copy(defaultTemplatePath, templatePath, true);
-                p.Properties.SetValue("CustomTool", typeof(CrmCodeGenerator2011).Name);
-            };
-            m.ShowModal();
-        }
 
         #region SolutionEvents
         public int OnAfterCloseSolution(object pUnkReserved) { settings.IsActive = false; return VSConstants.S_OK; }

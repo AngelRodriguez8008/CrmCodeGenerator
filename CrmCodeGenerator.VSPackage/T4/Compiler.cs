@@ -3,7 +3,6 @@ using System.IO;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Text;
-using Microsoft.VisualStudio.TextTemplating;
 
 namespace CrmCodeGenerator.VSPackage.T4
 {
@@ -21,47 +20,23 @@ namespace CrmCodeGenerator.VSPackage.T4
 
         public Compiler(AppDomain appDomain)
         {
-            this._appDomain = appDomain;
+            _appDomain = appDomain;
         }
 
         #region properties
         public string TemplateFileValue;
 
-        public string TemplateFile
-        {
-            get { return TemplateFileValue; }
-        }
+        public string TemplateFile => TemplateFileValue;
 
-        public string FileExtension
-        {
-            get { return _fileExtensionValue; }
-        }
+        public string FileExtension => _fileExtensionValue;
 
-        public Encoding FileEncoding
-        {
-            get { return _fileEncodingValue; }
-        }
+        public Encoding FileEncoding => _fileEncodingValue;
 
-        public CompilerErrorCollection Errors
-        {
-            get { return _errorsValue; }
-        }
+        public CompilerErrorCollection Errors => _errorsValue;
 
-        public IList<string> StandardAssemblyReferences
-        {
-            get
-            {
-                return new string[] { typeof(System.Uri).Assembly.Location };
-            }
-        }
+        public IList<string> StandardAssemblyReferences => new string[] { typeof(Uri).Assembly.Location };
 
-        public IList<string> StandardImports
-        {
-            get
-            {
-                return new string[] { "System" };
-            }
-        }
+        public IList<string> StandardImports => new string[] { "System" };
 
         public string T4_PreProcessedTemplate;
         #endregion
@@ -110,7 +85,7 @@ namespace CrmCodeGenerator.VSPackage.T4
                 return assemblyReference;
             }
 
-            string candidate = Path.Combine(Path.GetDirectoryName(this.TemplateFile), assemblyReference);
+            string candidate = Path.Combine(Path.GetDirectoryName(TemplateFile), assemblyReference);
             if (File.Exists(candidate))
             {
                 return candidate;
@@ -126,7 +101,7 @@ namespace CrmCodeGenerator.VSPackage.T4
                 return typeof(CustomDirective);
             }
 
-            throw new NotSupportedException(string.Format("Directive processor type of {0} is not type supported.", processorName));
+            throw new NotSupportedException($"Directive processor type of {processorName} is not type supported.");
         }
 
         public string ResolvePath(string fileName)
@@ -141,7 +116,7 @@ namespace CrmCodeGenerator.VSPackage.T4
                 return fileName;
             }
 
-            string candidate = Path.Combine(Path.GetDirectoryName(this.TemplateFile), fileName);
+            string candidate = Path.Combine(Path.GetDirectoryName(TemplateFile), fileName);
             if (File.Exists(candidate))
             {
                 return candidate;
@@ -173,7 +148,7 @@ namespace CrmCodeGenerator.VSPackage.T4
             _fileExtensionValue = extension;
         }
 
-        public void SetOutputEncoding(System.Text.Encoding encoding, bool fromOutputDirective)
+        public void SetOutputEncoding(Encoding encoding, bool fromOutputDirective)
         {
             _fileEncodingValue = encoding;
         }

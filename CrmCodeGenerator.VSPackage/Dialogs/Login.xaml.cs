@@ -1,9 +1,5 @@
 ﻿using CrmCodeGenerator.VSPackage.Helpers;
 using CrmCodeGenerator.VSPackage.Model;
-using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Interop;
-using Microsoft.Xrm.Sdk.Messages;
-using Microsoft.Xrm.Sdk.Metadata;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -11,42 +7,35 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using CrmCodeGenerator.VSPackage.Xrm;
 
 namespace CrmCodeGenerator.VSPackage.Dialogs
 {
     /// <summary>
     /// Interaction logic for Login.xaml
     /// </summary>
-    public partial class Login : Microsoft.VisualStudio.PlatformUI.DialogWindow
+    public partial class Login
     {
-        
-        public Context Context;
-        Settings settings;
-        private EntityMetadata[] _AllEntities;
-        private bool _StillOpen = true;
-        public bool StillOpen
-        {
-            get
-            {
-                return _StillOpen;
-            }
-        }
+        public Mapper Mapper;
+        private readonly Settings settings;
+        private bool entitiesLoaded = false;
+
+        public bool StillOpen { get; private set; } = true;
+
         public Login(EnvDTE80.DTE2 dte, Settings settings)
         {
             WifDetector.CheckForWifInstall();
             InitializeComponent();
 
             var main = dte.GetMainWindow();
-            this.Owner = main;
+            Owner = main;
             //Loaded += delegate  { this.CenterWindow(main); };
 
             this.settings = settings;
-            this.txtPassword.Password = settings.Password;  // PasswordBox doesn't allow 2 way binding
-            this.DataContext = settings;
-         
+            txtPassword.Password = settings.Password;  // PasswordBox doesn't allow 2 way binding
+            DataContext = settings;
         }
 
-        
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
@@ -54,33 +43,30 @@ namespace CrmCodeGenerator.VSPackage.Dialogs
         }
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
+            settings.IsActive = true;
             UpdateStatus("In order to generate code from this template, you need to provide login credentials for your CRM system", null);
             UpdateStatus("The Discovery URL is the URL to your Discovery Service, you can find this URL in CRM -> Settings -> Customizations -> Developer Resources.  \n    eg " + @"https://dsc.yourdomain.com/XRMServices/2011/Discovery.svc", null);
             if (settings.OrgList.Contains(settings.CrmOrg) == false)
             {
                 settings.OrgList.Add(settings.CrmOrg);
             }
-            this.Organization.SelectedItem = settings.CrmOrg;
+            Organization.SelectedItem = settings.CrmOrg;
         }
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
-            _StillOpen = false;
-            this.Close();
+            StillOpen = false;
+            Close();
         }
-
 
         private void RefreshOrgs(object sender, RoutedEventArgs e)
         {
             settings.Password = ((PasswordBox)((Button)sender).CommandParameter).Password;  // PasswordBox doesn't allow 2 way binding, so we have to manually read it
-            UpdateStatus("Refreshing Orgs", true);
             try
             {
-                //var orgs = QuickConnection.GetOrganizations(settings.CrmSdkUrl, settings.Domain, settings.Username, settings.Password);
-                //var newOrgs = new ObservableCollection<String>(orgs);
-                //settings.OrgList = newOrgs;
-
-                var newOrgs = ConnectionHelper.GetOrgList(settings);
-                settings.OrgList = newOrgs;
+                UpdateStatus("Refreshing Organizations", true);
+                List<string> organizationNames = QuickConnection.GetOrganizationNames(settings);
+                settings.OrgList = new ObservableCollection<string>(organizationNames);
+                UpdateStatus("Organizations Loaded. Please pick one", false);
             }
             catch (Exception ex)
             {
@@ -88,8 +74,6 @@ namespace CrmCodeGenerator.VSPackage.Dialogs
                 UpdateStatus(error, false);
                 UpdateStatus("Unable to refresh organizations, check connection information", false);
             }
-
-            UpdateStatus("", false);
         }
 
         private void EntitiesRefresh_Click(object sender, RoutedEventArgs events)
@@ -102,61 +86,48 @@ namespace CrmCodeGenerator.VSPackage.Dialogs
 
             UpdateStatus("", false);
         }
-        
+
         private void RefreshEntityList()
         {
-            Update_AllEntities();
-            if (_AllEntities == null)
-            {
+            List<string> allEntities = GetAllEntityNames();
+            if (allEntities == null)
                 return;
-            }
 
-            var entities = _AllEntities.Where(e =>
-                            {
-                                if (settings.IncludeNonStandard)
-                                    return true;
-                                else
-                                    return !EntityHelper.NonStandard.Contains(e.LogicalName);
-                            });
-
-            var origSelection = settings.EntitiesToIncludeString;
-            var newList = new ObservableCollection<string>();
-            foreach (var entity in entities.OrderBy(e => e.LogicalName))
-            {
-                newList.Add(entity.LogicalName);
-            }
-
-            settings.EntityList = newList;
+            List<string> entities = settings.IncludeNonStandard
+                            ? allEntities
+                            : allEntities.Except(EntityHelper.NonStandard).ToList();
+      
+            entities.Sort();
+            
+            string origSelection = settings.EntitiesToIncludeString;
+            settings.EntityList = new ObservableCollection<string>(entities);
             settings.EntitiesToIncludeString = origSelection;
+            entitiesLoaded = true;
         }
-        private void Update_AllEntities()
+
+        private List<string> GetAllEntityNames()
         {
             try
             {
-                var connString = Microsoft.Xrm.Client.CrmConnection.Parse(settings.GetOrganizationCrmConnectionString());
-                var connection = new Microsoft.Xrm.Client.Services.OrganizationService(connString);
-
-                RetrieveAllEntitiesRequest request = new RetrieveAllEntitiesRequest()
+                using (var service = QuickConnection.Connect(settings))
                 {
-                    EntityFilters = EntityFilters.Default,
-                    RetrieveAsIfPublished = settings.IncludeUnpublish,
-                };
-                RetrieveAllEntitiesResponse response = (RetrieveAllEntitiesResponse)connection.Execute(request);
-                _AllEntities = response.EntityMetadata;
+                    List<string> result = service.GetAllEntityNames(settings.IncludeUnpublish);
+                    return result;
+                }
             }
             catch (Exception ex)
             {
                 var error = "[ERROR] " + ex.Message + (ex.InnerException != null ? "\n" + "[ERROR] " + ex.InnerException.Message : "");
-                UpdateStatus(error,false);
+                UpdateStatus(error, false);
                 UpdateStatus("Unable to refresh entities, check connection information", false);
+                return null;
             }
-
         }
 
         private void IncludeNonStandardEntities_Click(object sender, RoutedEventArgs e)
         {
-            if(_AllEntities != null)
-                RefreshEntityList();  // if we don't have the entire list of entities don't do anything (eg if they havn't entered a username & password)
+            if (entitiesLoaded)
+                RefreshEntityList(); // if we don't have the entire list of entities don't do anything (eg if they haven't entered a username & password)
         }
 
         private void Logon_Click(object sender, RoutedEventArgs e)
@@ -165,27 +136,28 @@ namespace CrmCodeGenerator.VSPackage.Dialogs
             UpdateStatus("Logging in to CRM...", true);
             try
             {
-
-                var connection = Microsoft.Xrm.Client.CrmConnection.Parse(settings.GetOrganizationCrmConnectionString());
-                settings.CrmConnection = new Microsoft.Xrm.Client.Services.OrganizationService(connection);
-                // TODO remove the QuickConnection class -->  settings.CrmConnection = QuickConnection.Connect(settings.CrmSdkUrl, settings.Domain, settings.Username, settings.Password, settings.CrmOrg);
-                if (settings.CrmConnection == null)
-                     throw new UserException("Unable to login to CRM, check to ensure you have the right organization");
-                
+                using (var service = QuickConnection.Connect(settings))
+                {
+                    bool success = service.CheckConnection();
+                    if (!success)
+                    {
+                        UpdateStatus("Unable to login to CRM, check to ensure you have the right organization", false);
+                        return;
+                    }
+                }
                 UpdateStatus("Mapping entities, this might take a while depending on CRM server/connection speed... ", true);
-                var mapper = new Mapper(settings);
-                Context = mapper.MapContext();
+                Mapper = new Mapper(settings);
 
                 settings.Dirty = true;  //  TODO Because the EntitiesSelected is a collection, the Settings class can't see when an item is added or removed.  when I have more time need to get the observable to bubble up.
-                _StillOpen = false;
-                this.Close();
+                StillOpen = false;
+                Close();
             }
             catch (Exception ex)
             {
                 var error = "[ERROR] " + ex.Message + (ex.InnerException != null ? "\n" + "[ERROR] " + ex.InnerException.Message : "");
                 UpdateStatus(error, false);
-                UpdateStatus(ex.StackTrace,false);
-                UpdateStatus("Unable to map entities, see error above.",false);
+                UpdateStatus(ex.StackTrace, false);
+                UpdateStatus("Unable to map entities, see error above.", false);
             }
             UpdateStatus("", false);
         }
@@ -193,24 +165,24 @@ namespace CrmCodeGenerator.VSPackage.Dialogs
         {
             if (working == true)
             {
-                Dispatcher.BeginInvoke(new Action(() =>
+                Dispatcher?.BeginInvoke(new Action(() =>
                 {
-                    this.Cursor = Cursors.Wait;
+                    Cursor = Cursors.Wait;
                     Inputs.IsEnabled = false;
                 }));
             }
             if (working == false)
             {
-                Dispatcher.BeginInvoke(new Action(() =>
+                Dispatcher?.BeginInvoke(new Action(() =>
                 {
-                    this.Cursor = null;
+                    Cursor = null;
                     Inputs.IsEnabled = true;
                 }));
             }
 
-            if(!string.IsNullOrWhiteSpace(message))
+            if (!string.IsNullOrWhiteSpace(message))
             {
-                Dispatcher.BeginInvoke(new Action(() => { Status.Update(message); }));
+                Dispatcher?.BeginInvoke(new Action(() => { Status.Update(message); }));
             }
 
             System.Windows.Forms.Application.DoEvents();  // Needed to allow the output window to update (also allows the cursor wait and form disable to show up)

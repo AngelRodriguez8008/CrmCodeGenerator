@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace CrmCodeGenerator.VSPackage.Helpers
@@ -37,7 +33,7 @@ namespace CrmCodeGenerator.VSPackage.Helpers
             double newTop = main.Top + (main.Height / 2) - (me.Height / 2);
             me.Left = newLeft;
             me.Top = newTop;
-            if (main.WindowState == System.Windows.WindowState.Maximized)
+            if (main.WindowState == WindowState.Maximized)
             {
                 var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)me.Left, (int)me.Top));
 

@@ -1,0 +1,17 @@
+﻿<#@ template debug="true" hostSpecific="true" #>
+<#@ output extension=".json" #>
+<#@ parameter type="CrmCodeGenerator.VSPackage.Model.Context" name="Context"#>
+{
+    "Entities": {
+<#foreach (var entity in Context.Entities){#>
+        "<#=entity.Attribute.LogicalName#>" : {
+            "CodeName": "<#=entity.HybridName#>",
+            "Attributes": {    
+<#foreach(var f in entity.Fields)	{#>
+                "<#=f.Attribute.LogicalName#>" : "<#=f.DisplayName#>",
+<#}#>
+            }
+        },
+<#}#>
+    }
+}

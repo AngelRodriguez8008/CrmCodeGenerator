@@ -1,14 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace CrmCodeGenerator.VSPackage.Helpers
+﻿namespace CrmCodeGenerator.VSPackage.Xrm
 {
     public class EntityHelper
     {
-        public static string[] NonStandard = new string[] {
+        public static string[] NonStandard = {
                         "applicationfile"
                         , "attachment" // Not included with CrmSvcUtil 6.0.0001.0061
 		                , "authorizationserver" // Not included with CrmSvcUtil 6.0.0001.0061

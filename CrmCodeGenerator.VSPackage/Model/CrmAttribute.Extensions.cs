@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Reflection;
 
 namespace CrmCodeGenerator.VSPackage.Model
@@ -26,15 +24,12 @@ namespace CrmCodeGenerator.VSPackage.Model
 
             var valuesString = values.Where(v =>
                 !(v.Value == null ||
-                  object.Equals(v.Value, "") ||
+                  Equals(v.Value, "") ||
                   v.Value.Equals(GetDefaultValue(v.Value.GetType())))).Select(v =>
-                            string.Format("{0} = {1}", v.Key, FormatValue(v.Value))).ToArray();
+                $"{v.Key} = {FormatValue(v.Value)}").ToArray();
 
             return
-                string.Format("[{0}({1})]",
-                    typeName,
-                    string.Join(", ", valuesString
-                        ));
+                $"[{typeName}({string.Join(", ", valuesString)})]";
         }
 
         private static object GetDefaultValue(Type t)
@@ -51,7 +46,7 @@ namespace CrmCodeGenerator.VSPackage.Model
                 return (bool)value ? "true" : "false";
 
             if (value.GetType() == typeof(string))
-                return string.Format("\"{0}\"", value);
+                return $"\"{value}\"";
 
             return value.ToString();
         }

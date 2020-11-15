@@ -11,21 +11,22 @@ namespace CrmCodeGenerator.VSPackage.Model
     {
         public CrmEntityAttribute Attribute { get; set; }
         public bool IsIntersect { get; set; }
-        public Nullable<int> TypeCode { get; set; }
+        public int? TypeCode { get; set; }
         public MappingField[] Fields { get; set; }
         public MappingEnum States { get; set; }
+        public MappingEnum Status { get; set; }      
         public MappingEnum[] Enums { get; set; }
         public MappingRelationship1N[] RelationshipsOneToMany { get; set; }
         public MappingRelationshipN1[] RelationshipsManyToOne { get; set; }
 
-        public string LogicalName
-        {
-            get
-            {
-                return Attribute.LogicalName;
-            }
-        }
+        public string LogicalName => Attribute.LogicalName;
 
+        private string mappedName;
+        public string MappedName
+        {
+            get => string.IsNullOrWhiteSpace(mappedName) ? HybridName : mappedName;
+            set => mappedName = value;
+        }
         public string DisplayName { get; set; }
         public string HybridName { get; set; }
         public string StateName { get; set; }
@@ -33,125 +34,157 @@ namespace CrmCodeGenerator.VSPackage.Model
         public string PrimaryKeyProperty { get; set; }
         public string PrimaryNameAttribute { get; set; }
         public string Description { get; set; }
-        public string DescriptionXmlSafe 
-        {
-            get
-            {
-                return Naming.XmlEscape(Description);
-            }
-        }
-
-        public string Plural
-        {
-            get
-            {
-                return Naming.GetPluralName(DisplayName);
-            }
-        }
+        public string DescriptionXmlSafe => Naming.XmlEscape(Description);
+        public string Plural => Naming.GetPluralName(DisplayName);
         public MappingEntity()
         {
             Description = "";
         }
 
-        public static MappingEntity Parse(EntityMetadata entityMetadata)
+        public static MappingEntity Parse(EntityMetadata entityMetadata, EntityMappingSetting entityMapping)
         {
-            var entity = new MappingEntity();
-            
-            entity.Attribute = new CrmEntityAttribute();
-            entity.TypeCode = entityMetadata.ObjectTypeCode;
-            entity.Attribute.LogicalName = entityMetadata.LogicalName;
-            entity.IsIntersect = (bool)entityMetadata.IsIntersect;
-            entity.Attribute.PrimaryKey = entityMetadata.PrimaryIdAttribute;
+            var primaryKey = entityMetadata.PrimaryIdAttribute;
+            var primaryName = entityMetadata.PrimaryNameAttribute;
 
+            var entity = new MappingEntity
+            {
+                Attribute = new CrmEntityAttribute
+                {
+                    PrimaryKey = primaryKey,
+                    LogicalName = entityMetadata.LogicalName
+                },
+                TypeCode = entityMetadata.ObjectTypeCode,
+                IsIntersect = entityMetadata.IsIntersect == true
+            };
             // entity.DisplayName = Helper.GetProperVariableName(entityMetadata.SchemaName);
             entity.DisplayName = Naming.GetProperEntityName(entityMetadata.SchemaName);
             entity.HybridName = Naming.GetProperHybridName(entityMetadata.SchemaName, entityMetadata.LogicalName);
-            entity.StateName = entity.HybridName + "State";
+            entity.StateName = entity.MappedName + "State";
+            entity.MappedName = entityMapping?.CodeName;
 
-            if (entityMetadata.Description != null)
-                if (entityMetadata.Description.UserLocalizedLabel != null)
-                    entity.Description = entityMetadata.Description.UserLocalizedLabel.Label;
+            if (entityMetadata.Description?.UserLocalizedLabel != null)
+                entity.Description = entityMetadata.Description.UserLocalizedLabel.Label;
 
-            var fields = entityMetadata.Attributes
+            IEnumerable<AttributeMetadata> attributes = entityMetadata.Attributes;
+
+            if (entityMapping?.Attributes != null)
+                attributes = attributes.Where(a => /*a is StateAttributeMetadata || 
+                                                   a is StatusAttributeMetadata || */
+                                                   a.LogicalName == primaryKey ||
+                                                   a.LogicalName == primaryName ||
+                                                   entityMapping.Attributes.ContainsKey(a.LogicalName));
+
+            var fields = attributes
                 .Where(a => a.AttributeOf == null)
-                .Select(a => MappingField.Parse(a, entity)).ToList();
+                .Select(a => MappingField.Parse(a, entity))
+                .ToList();
 
             fields.ForEach(f =>
                     {
                         if (f.DisplayName == entity.DisplayName)
                             f.DisplayName += "1";
+
+                        if (entityMapping?.Attributes != null)
+                        {
+                            entityMapping.Attributes.TryGetValue(f.LogicalName, out var mappedName);
+                            f.MappedName = mappedName;
+                        }
                         //f.HybridName = Naming.GetProperHybridFieldName(f.DisplayName, f.Attribute);
                     }
                 );
 
-            AddEnityImageCRM2013(fields);
             AddLookupFields(fields);
-
+            AddEnityImageCRM2013(fields);
             entity.Fields = fields.ToArray();
-            entity.States = entityMetadata.Attributes.Where(a => a is StateAttributeMetadata).Select(a => MappingEnum.Parse(a as EnumAttributeMetadata)).FirstOrDefault();
 
-            entity.Enums = entityMetadata.Attributes
-                .Where(a => a is PicklistAttributeMetadata || a is StateAttributeMetadata || a is StatusAttributeMetadata || a is BooleanAttributeMetadata)
-                .Select(a => MappingEnum.Parse(a)).ToArray();
+            var mappingEnums = new List<MappingEnum>();
+            var stateAttribute = attributes.FirstOrDefault(a => a is StateAttributeMetadata);
+            if (stateAttribute != null)
+            {
+                entity.States = MappingEnum.Parse(stateAttribute as EnumAttributeMetadata);
+                mappingEnums.Add(entity.States);
+            }
+            var statusAttribute = attributes.FirstOrDefault(a => a is StatusAttributeMetadata);
+            if (statusAttribute != null)
+            {
+                entity.Status = MappingEnum.Parse(statusAttribute as StatusAttributeMetadata, entity.States);
+                mappingEnums.Add(entity.Status);
+            }
 
-            entity.PrimaryKey = entity.Fields.First(f => f.Attribute.LogicalName == entity.Attribute.PrimaryKey);
-            entity.PrimaryKeyProperty = entity.PrimaryKey.DisplayName;
-            entity.PrimaryNameAttribute = entityMetadata.PrimaryNameAttribute;
+            var picklists = attributes
+                .Where(a => a != null && (a is PicklistAttributeMetadata || a is MultiSelectPicklistAttributeMetadata || a is BooleanAttributeMetadata))
+                .Select(MappingEnum.Parse)
+                .Where(enm => enm != null);
 
-            entity.RelationshipsOneToMany = entityMetadata.OneToManyRelationships.Select(r =>
-                MappingRelationship1N.Parse(r, entity.Fields)).ToArray();
-
-            entity.RelationshipsOneToMany.ToList().ForEach(r => {
-                var newName = r.DisplayName;
-
-                if (newName  == entity.DisplayName || newName == entity.HybridName)
-                    newName = r.DisplayName += "1";
-
-                if(entity.Fields.Any(e => e.DisplayName == newName))
-                {
-                    newName = r.DisplayName += "2";
-                }
+            mappingEnums.AddRange(picklists);
+            mappingEnums.ForEach(enm =>
+            {
+                string mappedName = null;
+                entityMapping?.Attributes?.TryGetValue(enm.LogicalName, out mappedName);
+                enm.MappedName = mappedName;
             });
 
+            entity.Enums = mappingEnums.ToArray();
 
-            entity.RelationshipsManyToOne = entityMetadata.ManyToOneRelationships.Select(r =>
-                MappingRelationshipN1.Parse(r, entity.Fields)).ToArray();
+            entity.PrimaryKey = entity.Fields.FirstOrDefault(f => f.Attribute.LogicalName == entity.Attribute.PrimaryKey);
+            entity.PrimaryKeyProperty = entity.PrimaryKey?.DisplayName;
+            entity.PrimaryNameAttribute = primaryName;
 
-            entity.RelationshipsManyToOne.ToList().ForEach(r => {
-                var newName = r.DisplayName;
+            entity.RelationshipsOneToMany = entityMetadata.OneToManyRelationships
+                .Select(r => MappingRelationship1N.Parse(r, entity.Fields))
+                .Where(r => r != null)
+                .ToArray();
 
-                if (newName == entity.DisplayName || newName == entity.HybridName)
-                    newName = r.DisplayName += "1";
+            entity.RelationshipsOneToMany.ToList().ForEach(r => RenameDuplicates(r, entity));
 
-                if (entity.Fields.Any(e => e.DisplayName == newName))
-                {
-                    newName = r.DisplayName += "2";
-                }
-            });
+            entity.RelationshipsManyToOne = entityMetadata.ManyToOneRelationships
+                .Select(r => MappingRelationshipN1.Parse(r, entity.Fields))
+                .Where(r => r != null)
+                .ToArray();
 
-            var RelationshipsManyToMany = entityMetadata.ManyToManyRelationships.Select(r => MappingRelationshipMN.Parse(r, entity.LogicalName)).ToList();
-            var selfReferenced = RelationshipsManyToMany.Where(r => r.IsSelfReferenced).ToList();
+            entity.RelationshipsManyToOne.ToList().ForEach(r => RenameDuplicates(r, entity));
+
+            var relationshipsManyToMany = entityMetadata.ManyToManyRelationships
+                .Select(r => MappingRelationshipMN.Parse(r, entity.LogicalName))
+                .ToList();
+
+            var selfReferenced = relationshipsManyToMany.Where(r => r.IsSelfReferenced).ToList();
             foreach (var referecned in selfReferenced)
             {
                 var referencing = (MappingRelationshipMN)referecned.Clone();
                 referencing.DisplayName = "Referencing" + Naming.GetProperVariableName(referecned.SchemaName);
                 referencing.EntityRole = "Microsoft.Xrm.Sdk.EntityRole.Referencing";
-                RelationshipsManyToMany.Add(referencing);
+                relationshipsManyToMany.Add(referencing);
             }
-            RelationshipsManyToMany.ForEach(r => {
-                var newName = r.DisplayName;
-
-                if (newName == entity.DisplayName || newName == entity.HybridName)
-                    newName = r.DisplayName += "1";
-
-                if (entity.Fields.Any(e => e.DisplayName == newName))
-                {
-                    newName = r.DisplayName += "2";
-                }
-            });
-            entity.RelationshipsManyToMany = RelationshipsManyToMany.OrderBy(r => r.DisplayName).ToArray();
+            relationshipsManyToMany.ForEach(r => RenameDuplicates(r, entity));
+            entity.RelationshipsManyToMany = relationshipsManyToMany.OrderBy(r => r.DisplayName).ToArray();
 
             return entity;
+        }
+
+        public bool HasCommonStates =>
+            States != null && States.LogicalName == "statecode" && States.Items.Length == 2 &&
+            States.Items.Any(s => s.Value == 0 && s.Name == "Active") &&
+            States.Items.Any(s => s.Value == 1 && s.Name == "Inactive");
+        public bool HasCommonStatus =>
+            Status != null && Status.LogicalName == "statuscode" && Status.Items.Length == 2 &&
+                   Status.Items.Any(s => s.Value == 1 && s.Name == "Active_Active") &&
+                   Status.Items.Any(s => s.Value == 2 && s.Name == "Inactive_Inactive");
+    public bool IsProcessInstance => Attribute.PrimaryKey == "businessprocessflowinstanceid";
+        public bool IsActivity => Attribute.PrimaryKey == "activityid";
+
+        private static void RenameDuplicates(MappingRelationship relation, MappingEntity entity)
+        {
+            var newName = relation.DisplayName;
+
+            if (newName == entity.DisplayName || newName == entity.HybridName)
+                newName = relation.DisplayName += "1";
+
+            if (entity.Fields.Any(e => e.DisplayName == newName))
+            {
+                newName = relation.DisplayName += "2";
+            }
+            relation.DisplayName = newName;
         }
 
         private static void AddLookupFields(List<MappingField> fields)
@@ -164,11 +197,13 @@ namespace CrmCodeGenerator.VSPackage.Model
                     Attribute = new CrmPropertyAttribute
                     {
                         IsLookup = false,
+                        Type = lookup.Attribute.Type,
                         LogicalName = lookup.Attribute.LogicalName + "Name",
                         IsEntityReferenceHelper = true
                     },
                     DisplayName = lookup.DisplayName + "Name",
                     HybridName = lookup.HybridName + "Name",
+                    MappedName = lookup.MappedName + "Name",
                     FieldType = AttributeTypeCode.EntityName,
                     IsValidForUpdate = false,
                     GetMethod = "",
@@ -186,11 +221,13 @@ namespace CrmCodeGenerator.VSPackage.Model
                     Attribute = new CrmPropertyAttribute
                     {
                         IsLookup = false,
+                        Type = lookup.Attribute.Type,
                         LogicalName = lookup.Attribute.LogicalName + "Type",
                         IsEntityReferenceHelper = true
                     },
                     DisplayName = lookup.DisplayName + "Type",
                     HybridName = lookup.HybridName + "Type",
+                    MappedName = lookup.MappedName + "Type",
                     FieldType = AttributeTypeCode.EntityName,
                     IsValidForUpdate = false,
                     GetMethod = "",
@@ -203,23 +240,25 @@ namespace CrmCodeGenerator.VSPackage.Model
         }
         private static void AddEnityImageCRM2013(List<MappingField> fields)
         {
-            
-            if (!fields.Any(f => f.DisplayName.Equals("EntityImageId")))
+            var hasImage = fields.Any(f => f.DisplayName.Equals("EntityImageId"));
+            if (!hasImage)
                 return;
 
-            var image = new MappingField {
-                    Attribute = new CrmPropertyAttribute
-                    {
-                        IsLookup = false,
-                        LogicalName = "entityimage",
-                        IsEntityReferenceHelper = false
-                    },
-                    DisplayName = "EntityImage",
-                    HybridName = "EntityImage",
-                    TargetTypeForCrmSvcUtil = "byte[]",
-                    IsValidForUpdate = true,
-                    Description = "",  // TODO there is an Description for this entityimage, Need to figure out how to read it from the server
-                    GetMethod = ""
+            var image = new MappingField
+            {
+                Attribute = new CrmPropertyAttribute
+                {
+                    IsLookup = false,
+                    Type = "Image",
+                    LogicalName = "entityimage",
+                    IsEntityReferenceHelper = false
+                },
+                DisplayName = "EntityImage",
+                HybridName = "EntityImage",
+                TargetTypeForCrmSvcUtil = "byte[]",
+                IsValidForUpdate = true,
+                Description = "",  // TODO there is an Description for this entityimage, Need to figure out how to read it from the server
+                GetMethod = ""
             };
             SafeAddField(fields, image);
 
@@ -228,6 +267,7 @@ namespace CrmCodeGenerator.VSPackage.Model
                 Attribute = new CrmPropertyAttribute
                 {
                     IsLookup = false,
+                    Type =  AttributeTypeCode.BigInt.ToString(),
                     LogicalName = "entityimage_timestamp",
                     IsEntityReferenceHelper = false
                 },
@@ -242,11 +282,12 @@ namespace CrmCodeGenerator.VSPackage.Model
             };
             SafeAddField(fields, imageTimestamp);
 
-            var imageURL = new MappingField
+            var imageUrl = new MappingField
             {
                 Attribute = new CrmPropertyAttribute
                 {
                     IsLookup = false,
+                    Type =  AttributeTypeCode.String.ToString(),
                     LogicalName = "entityimage_url",
                     IsEntityReferenceHelper = false
                 },
@@ -259,13 +300,13 @@ namespace CrmCodeGenerator.VSPackage.Model
                 Description = " ",   // CrmSvcUtil provides an empty description for this EntityImage_URL
                 GetMethod = ""
             };
-            SafeAddField(fields, imageURL);
+            SafeAddField(fields, imageUrl);
         }
         private static void SafeAddField(List<MappingField> fields, MappingField image)
         {
-            if (!fields.Any(f => f.DisplayName == image.DisplayName))
+            if (fields.All(f => f.DisplayName != image.DisplayName))
                 fields.Add(image);
         }
-        public MappingRelationshipMN [] RelationshipsManyToMany { get; set; }
+        public MappingRelationshipMN[] RelationshipsManyToMany { get; set; }
     }
 }

@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace CrmCodeGenerator.VSPackage.Model
 {
@@ -30,7 +27,7 @@ namespace CrmCodeGenerator.VSPackage.Model
 
         public object Clone()
         {
-            return this.MemberwiseClone();
+            return MemberwiseClone();
         }
     }
 
@@ -40,6 +37,7 @@ namespace CrmCodeGenerator.VSPackage.Model
     {
         public string LogicalName { get; set; }
         public bool IsLookup { get; set; }
+        public string Type { get; set; }
         public bool IsEntityReferenceHelper { get; set; }
     }
 
@@ -49,6 +47,6 @@ namespace CrmCodeGenerator.VSPackage.Model
     {
         public string DisplayName { get; set; }
         public int Value { get; set; }
-
+        public int? State { get; set; }
     }
 }

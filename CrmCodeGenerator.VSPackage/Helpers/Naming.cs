@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Globalization;
@@ -18,6 +17,7 @@ namespace CrmCodeGenerator.VSPackage.Helpers
             {
                 p = p.Trim();
                 p = Normalize(p);
+                p = Regex.Replace(p, "[^A-Za-z0-9_]", "");
 
                 if (!string.IsNullOrEmpty(p))
                 {
@@ -41,7 +41,6 @@ namespace CrmCodeGenerator.VSPackage.Helpers
 
                 result = ReplaceKeywords(result);
 
-                result = Regex.Replace(result, "[^A-Za-z0-9_]", "");
             }
 
             return result;
@@ -63,14 +62,13 @@ namespace CrmCodeGenerator.VSPackage.Helpers
             return regularString.Replace("æ", "");
         }
 
-
         private static string ReplaceKeywords(string p)
         {
             if (p.Equals("public", StringComparison.InvariantCultureIgnoreCase)
                 || p.Equals("private", StringComparison.InvariantCultureIgnoreCase)
                 // || p.Equals("event", StringComparison.InvariantCultureIgnoreCase)
                 || p.Equals("single", StringComparison.InvariantCultureIgnoreCase)
-                || p.Equals("new", StringComparison.InvariantCultureIgnoreCase)
+                || p.Equals("new", StringComparison.InvariantCulture)
                 || p.Equals("partial", StringComparison.InvariantCultureIgnoreCase)
                 || p.Equals("to", StringComparison.InvariantCultureIgnoreCase)
                 || p.Equals("error", StringComparison.InvariantCultureIgnoreCase)
@@ -89,8 +87,15 @@ namespace CrmCodeGenerator.VSPackage.Helpers
 
             return p;
         }
+        
+        public static string CamelWord(string p)
+        {
+            if (string.IsNullOrWhiteSpace(p))
+                return "";
 
-
+            return p.Substring(0, 1).ToUpper() + p.Substring(1).ToLower();
+        }
+        
         public static string CapitalizeWord(string p)
         {
             if (string.IsNullOrWhiteSpace(p))
@@ -106,12 +111,22 @@ namespace CrmCodeGenerator.VSPackage.Helpers
 
             return p.Substring(0, 1).ToLower() + p.Substring(1);
         }
+        
+        public static string Camel(string p)
+        {
+            var parts = p.Split(' ', '_', '-');
+
+            for (int i = 0; i < parts.Length; i++)
+                parts[i] = CamelWord(parts[i]);
+
+            return string.Join("", parts);
+        }
 
         public static string Capitalize(string p, bool capitalizeFirstWord)
         {
-            var parts = p.Split(' ', '_');
+            var parts = p.Split(' ', '_', '-');
 
-            for (int i = 0; i < parts.Count(); i++)
+            for (int i = 0; i < parts.Length; i++)
                 parts[i] = i != 0 || capitalizeFirstWord ? CapitalizeWord(parts[i]) : DecapitalizeWord(parts[i]);
 
             return string.Join("_", parts);
@@ -121,16 +136,15 @@ namespace CrmCodeGenerator.VSPackage.Helpers
         {
             if (entity.DisplayName != requestedName)
             {
-                if(entity.Fields != null)
-                {
-                    if (!entity.Fields.Any(x => requestedName.Equals(x.DisplayName)))
-                        return requestedName;
-                }
+                var alreadyExist = entity.Fields?.Any(x => x.DisplayName == requestedName);
+                if (alreadyExist != true)
+                    return requestedName;
             }
             for (int i = 1; i < 999; i++)
             {
                 var newName = requestedName + i;
-                if (!entity.Fields.Any(x => x.DisplayName == newName))
+                var alreadyExist = entity.Fields?.Any(x => x.DisplayName == newName);
+                if (alreadyExist != true)
                     return newName;
             }
             return requestedName;
@@ -138,30 +152,22 @@ namespace CrmCodeGenerator.VSPackage.Helpers
 
         public static string GetProperEntityName(string entityName)
         {
-                return Clean(Capitalize(entityName, true));
+            return Clean(Capitalize(entityName, true));
         }
         public static string GetProperHybridName(string displayName, string logicalName)
         {
             if (logicalName.Contains("_"))
             {
-                Console.WriteLine(displayName + " " + logicalName);
+                Console.WriteLine($@"{displayName} - {logicalName}");
                 return displayName;
             }
-            else
-            {
-                return Clean(Capitalize(displayName, true));
-            }
+            return Clean(Capitalize(displayName, true));
         }
-        public static string GetProperHybridFieldName(string displayName, CrmCodeGenerator.VSPackage.Model.CrmPropertyAttribute attribute)
+
+        public static string GetProperHybridFieldName(string displayName, CrmPropertyAttribute attribute)
         {
-            if (attribute != null && attribute.LogicalName.Contains("_"))
-            {
-                return attribute.LogicalName;
-            }
-            else
-            {
-                return displayName;
-            }
+            var logicalName = attribute?.LogicalName;
+            return logicalName?.Contains("_") == true ? logicalName : displayName;
         }
 
         public static string GetProperVariableName(Microsoft.Xrm.Sdk.Metadata.AttributeMetadata attribute)
@@ -195,11 +201,12 @@ namespace CrmCodeGenerator.VSPackage.Helpers
             if (attribute.LogicalName == "entitytypecode")
                 return "__EntityTypeCode";  // PrincipalSyncAttributeMap has a field called EntityTypeCode, the template will already have a property called EntityTypeCode which refers to the entity's type code.
 
-            if(attribute.LogicalName.Equals(attribute.SchemaName, StringComparison.InvariantCultureIgnoreCase))
+            if (attribute.LogicalName.Equals(attribute.SchemaName, StringComparison.InvariantCultureIgnoreCase))
                 return Clean(attribute.SchemaName);
-            
+
             return Clean(Capitalize(attribute.LogicalName, true));
         }
+
         public static string GetProperVariableName(string p)
         {
             if (string.IsNullOrWhiteSpace(p))
@@ -208,6 +215,14 @@ namespace CrmCodeGenerator.VSPackage.Helpers
                 return "Closed";
             //return Clean(Capitalize(p, true));
             return Clean(p);
+        }
+        
+        public static string GetEnumItemName(string p)
+        {
+            if (string.IsNullOrWhiteSpace(p))
+                return "Empty";
+            
+            return Clean(Camel(p));
         }
 
         public static string GetPluralName(string p)
